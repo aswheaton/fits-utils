@@ -17,10 +17,10 @@ def get_fits(dir):
     for item in file_list:
         if item.endswith(".fits") == false:
             file_list.remove(item)
-        fits_image_filename = fits_util.get_testdata_filepath(file_path)
+        fits_image_filename = fits_util.get_testdata_filepath(item)
         fits_list.append(fits.open(fits_image_filename))
 
-def combine_dark():
+def combine_dark(dark_list):
     """
     combines darks by taking the median of the data
     """
