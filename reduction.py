@@ -4,16 +4,21 @@ reduction.py is used to reduce astro images blah blah blah
 
 import numpy as np
 from astropy.io import fits
-from astropy import units as u
-from astropy.coordinates import SkyCoord
-from astropy.wcs import WCS
-from astropy.nddata import Cutout2D
-from astropy.nddata import CCDData
+from os import listdir
+from os.path import isfile, join
 
-def get_fits():
+def get_fits(dir):
     """
     function for importing fits files to fits objects
+    creates a list of fits objects
     """
+    file_list = listdir(dir)
+    fits_list = []
+    for item in file_list:
+        if item.endswith(".fits") == false:
+            file_list.remove(item)
+        fits_image_filename = fits_util.get_testdata_filepath(file_path)
+        fits_list.append(fits.open(fits_image_filename))
 
 def combine_dark():
     """
