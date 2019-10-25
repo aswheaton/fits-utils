@@ -1,11 +1,16 @@
+#! /usr/bin/env python
+
 """
 reduction.py is used to reduce astro images blah blah blah
 """
 
-import numpy as np
-from astropy.io import fits
-from os import listdir
-from os.path import isfile, join
+# import numpy as np
+# from astropy.io import fits
+# from os import listdir
+# from os.path import isfile, join
+
+import sys
+from pyraf import iraf
 
 def get_fits(dir):
     """
@@ -25,10 +30,12 @@ def combine_dark(dark_list):
     combines darks by taking the median of the data
     """
 
-def subtract_dark():
+def subtract_dark(dark_frame, raw_frame):
     """
     subtracts a master dark from a fits file depending on the integration time
     """
+
+    return(adjusted_frame)
 
 def normalise_flat():
     """
