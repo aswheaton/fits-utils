@@ -10,20 +10,24 @@ reduction.py is used to reduce astro images blah blah blah
 # from os.path import isfile, join
 
 import sys
-from pyraf import iraf
 
-def get_fits(dir):
+from astropy.io import fits
+#from pyraf import iraf
+
+def get_fits(filename):
     """
     function for importing fits files to fits objects
     creates a list of fits objects
     """
-    file_list = listdir(dir)
-    fits_list = []
-    for item in file_list:
-        if item.endswith(".fits") == false:
-            file_list.remove(item)
-        fits_image_filename = fits_util.get_testdata_filepath(item)
-        fits_list.append(fits.open(fits_image_filename))
+    hdul = fits.open(filename)
+    hdul.info()
+    # file_list = listdir(dir)
+    # fits_list = []
+    # for item in file_list:
+    #     if item.endswith(".fits") == false:
+    #         file_list.remove(item)
+    #     fits_image_filename = fits_util.get_testdata_filepath(item)
+    #     fits_list.append(fits.open(fits_image_filename))
 
 def combine_dark(dark_list):
     """
@@ -49,17 +53,16 @@ def divide_flat():
 
 def align_images():
     """
-    aligns multiple images of the same object in the same band so they can be combined correctly
+    aligns multiple images of the same object in the same band so they can be
+    combined correctly
     """
 
 def combine_images():
     """
-    combines multiple images of the same object in the same band to be used for science
+    combines multiple images of the same object in the same band to be used for
+    science
     """
 
 def main():
-    """
-    Main wrapper function
-    """
-
-if __name__ == "__main__": main()
+    get_fits("dat/bd71_g10sec_001.fits")
+main()
