@@ -16,13 +16,13 @@ from astropy.io import fits
 from astropy.nddata import CCDData
 #from pyraf import iraf
 
-def get_fits(filename):
-    """
-    function for importing fits files to fits objects
-    creates a list of fits objects
-    """
-    hdul = fits.open(filename)
-    hdul.info()
+# def get_fits(filename):
+#     """
+#     function for importing fits files to fits objects
+#     creates a list of fits objects
+#     """
+#     hdul = fits.open(filename)
+#     hdul.info()
     # file_list = listdir(dir)
     # fits_list = []
     # for item in file_list:
@@ -38,23 +38,27 @@ def get_image(filename):
     image = CCDData.read(filename)
     return(image)
 
-def subtract_dark(master_dark_frame, raw_frame):
-    """
-    subtracts a master dark from a fits file depending on the integration time
-    """
-    dark_adjusted_frame = raw_frame - master_dark_frame
-    return(adjusted_frame)
+# def subtract_dark(master_dark_frame, raw_frame):
+#     """
+#     subtracts a master dark from a fits file depending on the integration time
+#     """
+#     return(raw_frame - master_dark_frame)
 
-# def normalise_flat():
+# def normalise_flat(flat_frame):
 #     """
 #     divides a flat object by the mode of the data to normalise it
 #     """
-#
-# def divide_flat():
+#     # Obtain mode of the flat frame
+
+
+#     return(norm_flat_frame)
+
+# def divide_flat(master_flat_frame, raw_frame):
 #     """
 #     divides a fits object by a flat depending on the integraton time and band
 #     """
-#
+#     return(raw_frame)
+
 # def align_images():
 #     """
 #     aligns multiple images of the same object in the same band so they can be
@@ -111,6 +115,7 @@ def average_frame(filelist, **kwargs):
         return average
     if kwargs.get('mode') == 'pyraf':
         # lol, don't do this.
+
         return average
 
 def write_out_fits(image, filename):
@@ -118,12 +123,41 @@ def write_out_fits(image, filename):
 
 def main():
     # Example dark frame averaging.
-    filelist = ['dat/dark_5sec_001.fits',
+    dark_list = ['dat/dark_5sec_001.fits',
                 'dat/dark_5sec_002.fits',
                 'dat/dark_5sec_003.fits',
                 'dat/dark_5sec_004.fits',
                 'dat/dark_5sec_005.fits'
                 ]
-    master_dark_frame = average_frame(filelist, mode='astropy', average='median')
+    # Example flat frame averaging
+    flat_list = ['dat/Flat_g5sec_001.fits',
+                'dat/Flat_g5sec_002.fits',
+                'dat/Flat_g5sec_003.fits',
+                'dat/Flat_g5sec_004.fits',
+                'dat/Flat_g5sec_005.fits',
+                'dat/Flat_g5sec_006.fits',
+                'dat/Flat_g5sec_007.fits',
+                ]
+    #Example raw list
+    raw_list = ['dat/bd71_g10sec_001.fits',
+                'dat/bd71_g10sec_002.fits',
+                'dat/bd71_g10sec_003.fits'
+                ]
+
+    master_dark_frame = average_frame(dark_list, mode='astropy', average='median')
+    master_flat_frame = average_frame(filelist, mode='astropy', average='median')
+
+    # Empty list of sciences
+    science_list = []
+    for raw_filename in raw_list:
+        # Get CCDData from fits file
+        raw_image = get_image(raw_filename)
+        # Dark subtract
+        raw_image.subtract(master_dark_frame)
+        # Flat divide
+        raw_image.divide(master_flat_frame)
+        # Append to science list
+        science_list.append(raw_image)
+
     write_out_fits(master_dark_frame, 'master_dark_frame.fits')
 main()
