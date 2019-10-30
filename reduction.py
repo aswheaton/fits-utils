@@ -12,24 +12,48 @@ reduction.py is used to reduce astro images blah blah blah
 import sys
 import math as m
 
+import configparser
+
 from astropy.io import fits
 from astropy.nddata import CCDData
 #from pyraf import iraf
 
-# def get_fits(filename):
-#     """
-#     function for importing fits files to fits objects
-#     creates a list of fits objects
-#     """
-#     hdul = fits.open(filename)
-#     hdul.info()
-    # file_list = listdir(dir)
-    # fits_list = []
-    # for item in file_list:
-    #     if item.endswith(".fits") == false:
-    #         file_list.remove(item)
-    #     fits_image_filename = fits_util.get_testdata_filepath(item)
-    #     fits_list.append(fits.open(fits_image_filename))
+def add_to_dict(item, key, dict):
+    """
+    adding lists to dictionarys without knowing the key beforehand
+    """
+    if key in dict == False:
+        dict[key] = []
+    dict[key].append(item)
+
+def get_lists(dir):
+    """
+    Function to return lists of darks, flats, and raws with their integration times and observing bands specified
+    """
+    dark_dict = {}
+    flat_dict = {}
+    raw_dict = {}
+
+    # Load necessary data from config.ini
+    config = configparser.ConfigParser()
+    config.read('config.ini')
+
+    # List all the files in the dat directory
+    file_list = listdir(dir)
+    for item in file_list:
+        if item.endswith('.fits'):
+            name_str = item.split('_')
+            # Check for dark
+            if name_str[0] == 'dark':
+                # Add to dictionary with integration time as a key
+                add_to_dict(item, name_str[1], dark_dict)
+            # Check for flat
+            elif name_str[0] == 'flat':
+                # Add to dictionary with band as key
+                add_to_dict(item, name_str[1], flat_dict)
+
+
+    return dark_dict, flat_dict, raw_dict
 
 def get_image(filename):
     """
@@ -143,6 +167,9 @@ def main():
                 'dat/bd71_g10sec_002.fits',
                 'dat/bd71_g10sec_003.fits'
                 ]
+
+    # Create lists of darks/flats/raws for specific integration times and bands
+    dark_list, flat_list, raw_list = get_lists(dir)
 
     master_dark_frame = average_frame(dark_list, mode='astropy', average='median')
     master_flat_frame = average_frame(filelist, mode='astropy', average='median')
