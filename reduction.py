@@ -18,25 +18,29 @@ from astropy.io import fits
 from astropy.nddata import CCDData
 #from pyraf import iraf
 
-def add_to_dict(item, key, dict):
+def add_to_list(item, array, *argv):
     """
-    adding lists to dictionarys without knowing the key beforehand
+    Construct a list containing the item and any other arguments. This list is then added to the input list
     """
-    if key in dict == False:
-        dict[key] = []
-    dict[key].append(item)
+    sub_list = [item]
+    for arg in argv:
+        sub_list.append(arg)
+    array.append(sub_list)
+
 
 def get_lists(dir):
     """
     Function to return lists of darks, flats, and raws with their integration times and observing bands specified
     """
-    dark_dict = {}
-    flat_dict = {}
-    raw_dict = {}
+    dark_list = []
+    flat_list = []
+    target_list = []
+    standard_star_list =[]
 
     # Load necessary data from config.ini
     config = configparser.ConfigParser()
     config.read('config.ini')
+    data_settings = config['DATA SETTINGS']
 
     # List all the files in the dat directory
     file_list = listdir(dir)
@@ -45,15 +49,22 @@ def get_lists(dir):
             name_str = item.split('_')
             # Check for dark
             if name_str[0] == 'dark':
-                # Add to dictionary with integration time as a key
-                add_to_dict(item, name_str[1], dark_dict)
+                # Add file to list and include integration time
+                add_to_list(item, dark_list, name_str[1])
             # Check for flat
             elif name_str[0] == 'flat':
-                # Add to dictionary with band as key
-                add_to_dict(item, name_str[1], flat_dict)
+                # Add file to list and include band and integration time
+                add_to_list(item, flat_dict, name_str[1], name_str[2])
+            # Check for standard stars
+            elif name_str[0] == data_settings['standard star a'] or name_str[0] == data_settings['standard star b']:
+                # Add file to list and include start/end, band, and Integration time
+                add_to_list(item, standard_star_list, name_str[1], name_str[2], name_str[3])
+            # Check for target star
+            elif name_str[0] == data_settings['target id']:
+                #Add file to list and include band, integration time, and frame position
+                add_to_list(item, target_list, name_str[1], name_str[2], name_str[3])
 
-
-    return dark_dict, flat_dict, raw_dict
+    return dark_list, flat_list, target_list, standard_star_list
 
 def get_image(filename):
     """
@@ -169,7 +180,7 @@ def main():
                 ]
 
     # Create lists of darks/flats/raws for specific integration times and bands
-    dark_list, flat_list, raw_list = get_lists(dir)
+    dark_list, flat_list, target_list, standard_star_list = get_lists('dat/')
 
     master_dark_frame = average_frame(dark_list, mode='astropy', average='median')
     master_flat_frame = average_frame(filelist, mode='astropy', average='median')
