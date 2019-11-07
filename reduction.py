@@ -11,8 +11,10 @@ reduction.py is used to reduce astro images blah blah blah
 
 import sys
 import math as m
+import numpy as np
 
-import configparser
+# import configparser
+# What is this?
 
 from astropy.io import fits
 from astropy.nddata import CCDData
@@ -28,50 +30,51 @@ def add_to_list(item, array, *argv):
     array.append(sub_list)
 
 
-def get_lists(dir):
-    """
-    Function to return lists of darks, flats, and raws with their integration times and observing bands specified
-    """
-    dark_list = []
-    flat_list = []
-    target_list = []
-    standard_star_list =[]
-
-    # Load necessary data from config.ini
-    config = configparser.ConfigParser()
-    config.read('config.ini')
-    data_settings = config['DATA SETTINGS']
-
-    # List all the files in the dat directory
-    file_list = listdir(dir)
-    for item in file_list:
-        if item.endswith('.fits'):
-            name_str = item.split('_')
-            # Check for dark
-            if name_str[0] == 'dark':
-                # Add file to list and include integration time
-                add_to_list(item, dark_list, name_str[1])
-            # Check for flat
-            elif name_str[0] == 'flat':
-                # Add file to list and include band and integration time
-                add_to_list(item, flat_dict, name_str[1], name_str[2])
-            # Check for standard stars
-            elif name_str[0] == data_settings['standard star a'] or name_str[0] == data_settings['standard star b']:
-                # Add file to list and include start/end, band, and Integration time
-                add_to_list(item, standard_star_list, name_str[1], name_str[2], name_str[3])
-            # Check for target star
-            elif name_str[0] == data_settings['target id']:
-                #Add file to list and include band, integration time, and frame position
-                add_to_list(item, target_list, name_str[1], name_str[2], name_str[3])
-
-    return dark_list, flat_list, target_list, standard_star_list
+# def get_lists(dir):
+#     """
+#     Function to return lists of darks, flats, and raws with their integration
+#     times and observing bands specified. Currently broken, it seems.
+#     """
+#     dark_list = []
+#     flat_list = []
+#     target_list = []
+#     standard_star_list =[]
+#
+#     # Load necessary data from config.ini
+#     config = configparser.ConfigParser()
+#     config.read('config.ini')
+#     data_settings = config['DATA SETTINGS']
+#
+#     # List all the files in the dat directory
+#     file_list = listdir(dir)
+#     for item in file_list:
+#         if item.endswith('.fits'):
+#             name_str = item.split('_')
+#             # Check for dark
+#             if name_str[0] == 'dark':
+#                 # Add file to list and include integration time
+#                 add_to_list(item, dark_list, name_str[1])
+#             # Check for flat
+#             elif name_str[0] == 'flat':
+#                 # Add file to list and include band and integration time
+#                 add_to_list(item, flat_dict, name_str[1], name_str[2])
+#             # Check for standard stars
+#             elif name_str[0] == data_settings['standard star a'] or name_str[0] == data_settings['standard star b']:
+#                 # Add file to list and include start/end, band, and Integration time
+#                 add_to_list(item, standard_star_list, name_str[1], name_str[2], name_str[3])
+#             # Check for target star
+#             elif name_str[0] == data_settings['target id']:
+#                 #Add file to list and include band, integration time, and frame position
+#                 add_to_list(item, target_list, name_str[1], name_str[2], name_str[3])
+#
+#     return dark_list, flat_list, target_list, standard_star_list
 
 def get_image(filename):
     """
     Creates and returns a CCDData object from a .fits filename.
     """
-    image = CCDData.read(filename)
-    return(image)
+    image = fits.open(filename)
+    return(image[0].data)
 
 # def subtract_dark(master_dark_frame, raw_frame):
 #     """
@@ -128,19 +131,22 @@ def average_frame(filelist, **kwargs):
             for filename in filelist:
                 average += get_image(filename)
             average = average / len(filelist)
+        images = []
         if kwargs.get('average') == 'median':
             for filename in filelist:
                 images.append(get_image(filename))
             # Check that all the images are of the same dimensions.
-            ra_pix = # ra width of the first CCDData object
-            dec_pix = # dec width of the first CCDData object
+            ra_pix = len(images[0])
+            dec_pix = len(images[0][0])
             for image in images:
-                if ra_pix != # ra width of image:
-                    # Raise Exception
-                if dec_pix != # dec width of image:
-                    # Raise Exception
-            # Initialise empty CCDData object.
-            average = CCDData(np.zeros((ra_pix, dec_pix)))
+                if ra_pix != len(image):
+                    print('Warning! Image dimensions do not match!\n')
+                    break
+                if dec_pix != len(image[0]):
+                    print('Warning! Image dimensions do not match!\n')
+                    break
+            # Initialise empty array and populates it with median values.
+            average = np.zeros((ra_pix, dec_pix))
             for i in range(ra_pix):
                 for j in range(dec_pix):
                     counts = []
@@ -154,7 +160,9 @@ def average_frame(filelist, **kwargs):
         return average
 
 def write_out_fits(image, filename):
-    image.write(filename)
+    hdu = fits.PrimaryHDU(image)
+    hdul = fits.HDUList([hdu])
+    hdul.writeto(filename)
 
 def main():
     # Example dark frame averaging.
@@ -180,22 +188,23 @@ def main():
                 ]
 
     # Create lists of darks/flats/raws for specific integration times and bands
-    dark_list, flat_list, target_list, standard_star_list = get_lists('dat/')
+    # dark_list, flat_list, target_list, standard_star_list = get_lists('dat/')
 
     master_dark_frame = average_frame(dark_list, mode='astropy', average='median')
-    master_flat_frame = average_frame(filelist, mode='astropy', average='median')
+    master_flat_frame = average_frame(flat_list, mode='astropy', average='median')
 
     # Empty list of sciences
-    science_list = []
-    for raw_filename in raw_list:
-        # Get CCDData from fits file
-        raw_image = get_image(raw_filename)
-        # Dark subtract
-        raw_image.subtract(master_dark_frame)
-        # Flat divide
-        raw_image.divide(master_flat_frame)
-        # Append to science list
-        science_list.append(raw_image)
+    # science_list = []
+    # for raw_filename in raw_list:
+    #     # Get CCDData from fits file
+    #     raw_image = get_image(raw_filename)
+    #     # Dark subtract
+    #     raw_image.subtract(master_dark_frame)
+    #     # Flat divide
+    #     raw_image.divide(master_flat_frame)
+    #     # Append to science list
+    #     science_list.append(raw_image)
 
     write_out_fits(master_dark_frame, 'master_dark_frame.fits')
+    write_out_fits(master_flat_frame, 'master_flat_frame.fits')
 main()
