@@ -187,24 +187,31 @@ def main():
                 'dat/bd71_g10sec_003.fits'
                 ]
 
-    # Create lists of darks/flats/raws for specific integration times and bands
-    # dark_list, flat_list, target_list, standard_star_list = get_lists('dat/')
+    # Create lists of darks/flats/raws for specific integration times and bands.
+    raw_dark_list, raw_flat_list, raw_target_list, raw_stand_star_list = get_lists('dat/')
 
+    # Create a new list of normalised flats in the tmp/ directory.
+    norm_flat_list = normalise_flats(flat_list)
+
+    # Create master dark and flat frame in the tmp/ directory.
     master_dark_frame = average_frame(dark_list, mode='astropy', average='median')
-    master_flat_frame = average_frame(flat_list, mode='astropy', average='median')
-
-    # Empty list of sciences
-    # science_list = []
-    # for raw_filename in raw_list:
-    #     # Get CCDData from fits file
-    #     raw_image = get_image(raw_filename)
-    #     # Dark subtract
-    #     raw_image.subtract(master_dark_frame)
-    #     # Flat divide
-    #     raw_image.divide(master_flat_frame)
-    #     # Append to science list
-    #     science_list.append(raw_image)
-
+    master_flat_frame = average_frame(norm_flat_list, mode='astropy', average='median')
     write_out_fits(master_dark_frame, 'master_dark_frame.fits')
     write_out_fits(master_flat_frame, 'master_flat_frame.fits')
+
+    # Create a list of reduced science frames for alignment.
+    science_list = []
+     for raw_filename in raw_list:
+         raw_image = get_image(raw_filename)
+         raw_image.subtract(master_dark_frame)
+         raw_image.divide(master_flat_frame)
+         science_list.append(raw_image)
+    
+    # Align images.
+    aligned_science_list = align_images(science_list)
+
+    # Stack the frames and write out.
+    stacked_science_frame = stack_images(aligned_science_list)
+    write_out_fits(stacked_science_frame, filename)
+
 main()
