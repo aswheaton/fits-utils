@@ -6,75 +6,83 @@ reduction.py is used to reduce astro images blah blah blah
 
 # import numpy as np
 # from astropy.io import fits
-# from os import listdir
-# from os.path import isfile, join
 
 import sys
 import math as m
 import numpy as np
 
-# import configparser
-# What is this?
-
 from astropy.io import fits
 from astropy.nddata import CCDData
 #from pyraf import iraf
 
-def add_to_list(item, array, *argv):
-    """
-    Construct a list containing the item and any other arguments. This list is then added to the input list
-    """
-    sub_list = [item]
-    for arg in argv:
-        sub_list.append(arg)
-    array.append(sub_list)
+from os import walk
+import configparser
 
-
-# def get_lists(dir):
-#     """
-#     Function to return lists of darks, flats, and raws with their integration
-#     times and observing bands specified. Currently broken, it seems.
-#     """
-#     dark_list = []
-#     flat_list = []
-#     target_list = []
-#     standard_star_list =[]
-#
-#     # Load necessary data from config.ini
-#     config = configparser.ConfigParser()
-#     config.read('config.ini')
-#     data_settings = config['DATA SETTINGS']
-#
-#     # List all the files in the dat directory
-#     file_list = listdir(dir)
-#     for item in file_list:
-#         if item.endswith('.fits'):
-#             name_str = item.split('_')
-#             # Check for dark
-#             if name_str[0] == 'dark':
-#                 # Add file to list and include integration time
-#                 add_to_list(item, dark_list, name_str[1])
-#             # Check for flat
-#             elif name_str[0] == 'flat':
-#                 # Add file to list and include band and integration time
-#                 add_to_list(item, flat_dict, name_str[1], name_str[2])
-#             # Check for standard stars
-#             elif name_str[0] == data_settings['standard star a'] or name_str[0] == data_settings['standard star b']:
-#                 # Add file to list and include start/end, band, and Integration time
-#                 add_to_list(item, standard_star_list, name_str[1], name_str[2], name_str[3])
-#             # Check for target star
-#             elif name_str[0] == data_settings['target id']:
-#                 #Add file to list and include band, integration time, and frame position
-#                 add_to_list(item, target_list, name_str[1], name_str[2], name_str[3])
-#
-#     return dark_list, flat_list, target_list, standard_star_list
-
-def get_image(filename):
+def get_lists(dir):
     """
-    Creates and returns a CCDData object from a .fits filename.
+
+    Function to create lists of darks, flats, targets, and standard stars. Each
+    list contains a dictionary and is constructed by the add_to_list method.
+    The configparser package is used to read a .ini file containing settings
+    that may be changed by the user in a text editor.
+
+    The function loops through the specified directory and assigns .fits files
+    to the lists if they match data in the config.ini file.
+
+    Args:
+        dir (str): The path of the directory to be used.
+
+    Returns:
+        dark_list (list): The list of 'dark' .fits files.
+        flat_list (list): The list of 'flat' .fits files.
+        target_list (list): The list of 'target' .fits files.
+        standard_star_list (list): The list of 'standard stars' .fits files.
+
     """
-    image = fits.open(filename)
-    return(image[0].data)
+    dark_list = []
+    flat_list = []
+    target_list = []
+    standard_star_list = []
+
+    def add_to_list(array, filename, **kwargs):
+        """
+
+        Function to construct a dictionary for a fits file containing a filename
+        key and keys for other optional information: integration time and band.
+        The dictionary is appended to a specific list.
+
+        Args:
+            array (list): The list to append the dictionary to.
+            filename (str): The name of the fits file.
+            **kwargs: Arbitary keyword arguments.
+
+        """
+        new_dict = {
+            'filename': filename
+        }
+        for key, value in kwargs.items():
+             new_dict[key] = value
+
+        array.append(new_dict)
+
+    config = configparser.ConfigParser()
+    config.read('config.ini')
+    data_settings = config['DATA SETTINGS']
+
+    _, _, filenames = next(walk(dir), (None, None, []))
+    for filename in filenames:
+        if filename.endswith('.fits'):
+            name_str = filename.split('_')
+            if name_str[0].lower() == 'dark':
+                add_to_list(dark_list, filename, integration_time = name_str[1])
+            elif name_str[0].lower() == 'flat':
+                add_to_list(flat_list, filename, intgeration_time = name_str[2], band = name_str[1])
+            elif name_str[0].lower() == data_settings['standard star a'] or name_str[0].lower() == data_settings['standard star b']:
+                add_to_list(standard_star_list, filename, integration_time = name_str[2], band = name_str[1])
+            elif name_str[0].lower() == data_settings['target id']:
+                add_to_list(target_list, filename, integration_time = name_str[2], band = name_str[1])
+
+    return dark_list, flat_list, target_list, standard_star_list
 
 # def subtract_dark(master_dark_frame, raw_frame):
 #     """
@@ -165,28 +173,6 @@ def write_out_fits(image, filename):
     hdul.writeto(filename)
 
 def main():
-    # Example dark frame averaging.
-    dark_list = ['dat/dark_5sec_001.fits',
-                'dat/dark_5sec_002.fits',
-                'dat/dark_5sec_003.fits',
-                'dat/dark_5sec_004.fits',
-                'dat/dark_5sec_005.fits'
-                ]
-    # Example flat frame averaging
-    flat_list = ['dat/Flat_g5sec_001.fits',
-                'dat/Flat_g5sec_002.fits',
-                'dat/Flat_g5sec_003.fits',
-                'dat/Flat_g5sec_004.fits',
-                'dat/Flat_g5sec_005.fits',
-                'dat/Flat_g5sec_006.fits',
-                'dat/Flat_g5sec_007.fits',
-                ]
-    #Example raw list
-    raw_list = ['dat/bd71_g10sec_001.fits',
-                'dat/bd71_g10sec_002.fits',
-                'dat/bd71_g10sec_003.fits'
-                ]
-
     # Create lists of darks/flats/raws for specific integration times and bands.
     raw_dark_list, raw_flat_list, raw_target_list, raw_stand_star_list = get_lists('dat/')
 
@@ -206,7 +192,7 @@ def main():
          raw_image.subtract(master_dark_frame)
          raw_image.divide(master_flat_frame)
          science_list.append(raw_image)
-    
+
     # Align images.
     aligned_science_list = align_images(science_list)
 
