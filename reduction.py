@@ -1,7 +1,14 @@
 #! /usr/bin/env python
 
-"""
-reduction.py is used to reduce astro images blah blah blah
+"""Reduction program
+
+This program is used to reduce fits files so that they are ready to be used for
+science. The raw files are stored in the 'dat/' folder. The program utilises the
+configparser module in order to read a 'config.ini' file. This file contains a
+target ID, standard star ID, and observing bands. The program sorts the data
+into lists of specific integration times and bands. The files are then reduced.
+The program outputs reduced fits files.
+
 """
 
 # import numpy as np
@@ -11,6 +18,8 @@ import sys
 import math as m
 import numpy as np
 
+from pathlib import Path
+
 from astropy.io import fits
 from astropy.nddata import CCDData
 #from pyraf import iraf
@@ -19,7 +28,7 @@ from os import walk
 import configparser
 
 def get_lists(dir):
-    """
+    """Sorts fits files into lists.
 
     Function to create lists of darks, flats, targets, and standard stars. Each
     list contains a dictionary and is constructed by the add_to_list method.
@@ -39,13 +48,14 @@ def get_lists(dir):
         standard_star_list (list): The list of 'standard stars' .fits files.
 
     """
+    #: list: Initially empty lists for containing dicts
     dark_list = []
     flat_list = []
     target_list = []
     standard_star_list = []
 
     def add_to_list(array, filename, **kwargs):
-        """
+        """Adds file data to lists of dictionaries.
 
         Function to construct a dictionary for a fits file containing a filename
         key and keys for other optional information: integration time and band.
@@ -54,9 +64,10 @@ def get_lists(dir):
         Args:
             array (list): The list to append the dictionary to.
             filename (str): The name of the fits file.
-            **kwargs: Arbitary keyword arguments.
+            **kwargs: Arbitrary keyword arguments.
 
         """
+        #: dict of str: Holds keys and values for filename and optional keys
         new_dict = {
             'filename': filename
         }
@@ -65,6 +76,7 @@ def get_lists(dir):
 
         array.append(new_dict)
 
+    #: ConfigParser: Contains setup data stored in .ini file.
     config = configparser.ConfigParser()
     config.read('config.ini')
     data_settings = config['DATA SETTINGS']
@@ -126,31 +138,39 @@ def median(list):
 
 def average_frame(filelist, **kwargs):
     """
-    Recieves a list of .fits images and returns either their mean or median as a
-    CCDData object, depending upon the value of keyword argument "average=".
+
+    Recieves a list of .fits images and returns either their mean or median as
+    a HDUList object, depending upon the value of keyword argument "average=".
     Uses either the astropy or the pyraf module depending upon the value of the
     keyword argument "mode=".
 
     Utilises the CCDData class; documentation can be found here:
     https://docs.astropy.org/en/stable/io/unified.html
+
+    Args:
+        filelist (list): list of HDUList.
+        **kwargs: Arbitrary keyword arguments.
+
+    Returns:
+        average (HDUList): object containing HDUList that can be written to a
+            file.
+
     """
     if kwargs.get('mode') == 'astropy':
         if kwargs.get('average') == 'mean':
-            for filename in filelist:
-                average += get_image(filename)
+            for file_object in filelist:
+                average += file_object
             average = average / len(filelist)
-        images = []
         if kwargs.get('average') == 'median':
-            for filename in filelist:
-                images.append(get_image(filename))
+            print(filelist[0])
             # Check that all the images are of the same dimensions.
-            ra_pix = len(images[0])
-            dec_pix = len(images[0][0])
-            for image in images:
-                if ra_pix != len(image):
+            ra_pix = len(filelist[0])
+            dec_pix = len(filelist[0][0])
+            for file_object in filelist:
+                if ra_pix != len(file_object):
                     print('Warning! Image dimensions do not match!\n')
                     break
-                if dec_pix != len(image[0]):
+                if dec_pix != len(file_object[0]):
                     print('Warning! Image dimensions do not match!\n')
                     break
             # Initialise empty array and populates it with median values.
@@ -158,8 +178,8 @@ def average_frame(filelist, **kwargs):
             for i in range(ra_pix):
                 for j in range(dec_pix):
                     counts = []
-                    for image in images:
-                        counts.append(image[i][j])
+                    for file_object in filelist:
+                        counts.append(file_object[i][j])
                     average[i][j] = median(counts)
         return average
     if kwargs.get('mode') == 'pyraf':
@@ -173,25 +193,81 @@ def write_out_fits(image, filename):
     hdul.writeto(filename)
 
 def main():
-    # Create lists of darks/flats/raws for specific integration times and bands.
-    raw_dark_list, raw_flat_list, raw_target_list, raw_stand_star_list = get_lists('dat/')
+    """Main body of the code.
+
+    Grabs sorted lists of files from get_lists function. Creates a list of
+    possible intgeration times from the dark files. Combines darks and flats
+    into master HDUList objects. These objects are stored in dictionaries that
+    have the integration times or bands as the keys.
+
+    """
+
+    data_folder = Path("dat/")
+
+    #: list of dict: Lists contain dicts with filename (str) and other keys.
+    raw_dark_list, raw_flat_list, raw_target_list, raw_std_star_list = get_lists(data_folder)
+
+    #: list of str: Contains possible intgeration times. No duplicates.
+    possible_int_times = list(set(sub['integration_time'] for sub in raw_dark_list))
+    #: list of str: Possible bands. No duplicates.
+    possible_bands = list(set(sub['band'] for sub in raw_flat_list))
+    #: dict of HDUList: Contains master dark objects and integration_times.
+    master_dark_frame = {}
+    for pos_int_time in possible_int_times:
+        #: list of HDUList: Contains filenames of dark files.
+        sorted_dark_list = []
+        for dark in raw_dark_list:
+            if dark['integration_time'] == pos_int_time:
+                sorted_dark_list.append(fits.open(data_folder / dark['filename']))
+        master_dark_frame[pos_int_time] = average_frame(sorted_dark_list, mode = 'astropy', average = 'median')
+    #: dict of HDUList: Master flat objects, bands, and integration times.
+    master_flat_frame = {}
+    for pos_band in possible_bands:
+        #: list of HDUList: Contains flat objects.
+        sorted_flat_list = []
+        for flat in raw_flat_list:
+            if flat['band'] == pos_band:
+                #: HDUList: Image of the flat.
+                flat_file = fits.open(data_folder / flat['filename'])
+                flat_file.subtract(master_dark_frame[flat['integration_time']])
+                sorted_flat_list.append(flat_file)
+        master_flat_frame[pos_band] = average_frame(sorted_flat_list, mode = 'astropy', average = 'median')
+
+    def reduce_raws(raw_list):
+        """Reduces raw images into science images.
+
+        This function loops through a list of raws. Each raw image is dark
+        subtracted and then flat divided.
+
+        Args:
+            raw_list (list): List of raw HDUList objects.
+
+        Returns:
+            science_list (list): List of reduced HDUList objects.
+
+        """
+        #: list of HDUList objects: Empty list for reduced images.
+        science_list = []
+        for raw in raw_list:
+            raw_image = fits.open(data_folder / raw['filename'])
+            raw_image.subtract(master_dark_frame[raw['integration_time']])
+            raw_image.divide(master_flat_frame[raw['band']])
+            science_list.append(raw_image)
+
+        return science_list
+
+    #: list of HDUList objects: Reduced target image list.
+    reduced_target_list = reduce_raws(raw_target_list)
+    #: list of HDUList objects: Reduced standard star image list.
+    reduced_std_star_list = reduce_raws(raw_std_star_list)
 
     # Create a new list of normalised flats in the tmp/ directory.
-    norm_flat_list = normalise_flats(flat_list)
+    # norm_flat_list = normalise_flats(flat_list)
 
-    # Create master dark and flat frame in the tmp/ directory.
-    master_dark_frame = average_frame(dark_list, mode='astropy', average='median')
-    master_flat_frame = average_frame(norm_flat_list, mode='astropy', average='median')
-    write_out_fits(master_dark_frame, 'master_dark_frame.fits')
-    write_out_fits(master_flat_frame, 'master_flat_frame.fits')
+    # write_out_fits(master_dark_frame, 'master_dark_frame.fits')
+    # write_out_fits(master_flat_frame, 'master_flat_frame.fits')
 
     # Create a list of reduced science frames for alignment.
-    science_list = []
-     for raw_filename in raw_list:
-         raw_image = get_image(raw_filename)
-         raw_image.subtract(master_dark_frame)
-         raw_image.divide(master_flat_frame)
-         science_list.append(raw_image)
 
     # Align images.
     aligned_science_list = align_images(science_list)
