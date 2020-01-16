@@ -48,6 +48,7 @@ def get_lists(dir):
     target_list = []
     standard_star_list = []
 
+    # Why is this function defined inside another? ~Wheaton
     def add_to_list(array, filename, **kwargs):
         """
         Adds file data to lists of dictionaries.
@@ -156,6 +157,27 @@ def normalise_flat(flat_array):
     normalised_flat = flat_array / mode(flat_array, axis=None)[0][0]
     return normalised_flat
 
+# # Raw reduction function with fixed scope (doesn't live inside main():)
+# def reduce_raws(raw_list, master_dark_frame, master_flat_frame):
+#     """
+#     Reduces raw images into science images. This function loops through a
+#     list of raws. Each raw image is dark subtracted and then flat divided.
+#
+#     Args:
+#         raw_list (list): List of raw ndarray objects.
+#     Returns:
+#         science_list (list): List of reduced ndarray objects.
+#     """
+#     #: list of ndarray: Empty list for reduced images.
+#     science_list = []
+#     for raw in raw_list:
+#         print('Reducing ' + str(len(science_list)) +  ' of ' + str(len(raw_list)) + ' images.', end='\r')
+#         with fits.open(data_folder / raw['filename']) as hdul:
+#             #: ndarray: Dark subtracted image data
+#             ds_data = np.subtract(hdul[0].data, master_dark_frame[raw['integration_time']])
+#             science_list.append(np.divide(ds_data, master_flat_frame[raw['band']]))
+#     return science_list
+
 def main():
     """
     Grabs sorted lists of files from get_lists function. Creates a list of
@@ -201,6 +223,7 @@ def main():
                     sorted_flat_list.append(data)
         master_flat_frame[pos_band] = normalise_flat(np.floor(np.median(sorted_flat_list, 0)))
 
+    # Why is this function defined inside the main? ~Wheaton
     def reduce_raws(raw_list):
         """
         Reduces raw images into science images. This function loops through a
@@ -221,13 +244,20 @@ def main():
                 science_list.append(np.divide(ds_data, master_flat_frame[raw['band']]))
         return science_list
 
+    # # Raw reduction with fixed scope issues. (No function definition inside main():)
+    # #: list of ndarray objects: Reduced target image list.
+    # reduced_target_list = reduce_raws(raw_target_list, master_dark_frame, master_flat_frame)
+    # #: list of ndarray objects: Reduced standard star image list.
+    # reduced_std_star_list = reduce_raws(raw_std_star_list, master_dark_frame, master_flat_frame)
+
+    # Old raw reduction without fixed scope issues.
     #: list of ndarray objects: Reduced target image list.
     reduced_target_list = reduce_raws(raw_target_list)
     #: list of ndarray objects: Reduced standard star image list.
     reduced_std_star_list = reduce_raws(raw_std_star_list)
 
-    # write_out_fits(master_dark_frame, 'master_dark_frame.fits')
-    # write_out_fits(master_flat_frame, 'master_flat_frame.fits')
+    # write_out_fits(master_dark_frame, 'tmp/master_dark_frame.fits')
+    # write_out_fits(master_flat_frame, 'tmp/master_flat_frame.fits')
     #
     # Create a list of reduced science frames for alignment.
     #
