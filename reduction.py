@@ -293,6 +293,9 @@ def main():
 
     # Create a list of reduced science frames for alignment.
     #
+    # TODO: I think our next step is to upload to Astrometry.net and utilise:
+    # https://docs.astropy.org/en/stable/wcs/
+    #
     # Align images.
     # aligned_science_list = align_images(science_list)
     #
