@@ -238,12 +238,12 @@ def main():
         #: list of ndarray: Empty list for reduced images.
         science_list = {}
         for raw in raw_list:
-            print('Reducing ' + str(len(science_list)) +  ' of ' + str(len(raw_list)) + ' images.', end='\r')
+            print('\rReducing ' + str(len(science_list)) +  ' of ' + str(len(raw_list)) + ' images.'),
             with fits.open(data_folder / raw['filename']) as hdul:
                 #: ndarray: Dark subtracted image data
                 ds_data = np.subtract(hdul[0].data, master_dark_frame[raw['integration_time']])
                 science_list[raw['filename']] = np.divide(ds_data, master_flat_frame[raw['band']])
-        print("\nDone!")
+        print("Done!"),
         return science_list
 
     # # Raw reduction with fixed scope issues. (No function definition inside main():)
@@ -263,13 +263,14 @@ def main():
     # write_out_fits(master_flat_frame, 'tmp/master_flat_frame.fits')
     # print("Done!")
 
-    print("CREATING DARKS")
+    print("Creating dark frames...")
     for key, value in master_dark_frame.items():
         write_out_fits(value, "tmp/"+"dark_"+str(key))
-    print("CREATING FLATS")
+    print("Done!"),
+    print("Creating flat frames...")
     for key, value in master_flat_frame.items():
         write_out_fits(value, "tmp/"+"flat_"+str(key))
-    print("DONE, CANCEL NOW!!!!")
+    print("Done!"),
 
     # Write out the reduced images for upload to astrometry.net.
     counter = 0
@@ -277,9 +278,9 @@ def main():
     for key, value in reduced_target_list.items():
         counter += 1
         # write_out_fits(frame, "sci/" + "somehow get filename here")
-        print('Writing out ' + str(counter) +  ' of ' + str(total) + ' images.', end='\r')
+        print('\rWriting out ' + str(counter) +  ' of ' + str(total) + 'target images.')
         write_out_fits(value, "sci/"+str(key))
-    print("Done!")
+    print("Done!"),
 
     # Write out the reduced images for upload to astrometry.net.
     counter = 0
@@ -287,9 +288,9 @@ def main():
     for key, value in reduced_std_star_list.items():
         counter += 1
         # write_out_fits(frame, "sci/" + "somehow get filename here")
-        print('Writing out ' + str(counter) +  ' of ' + str(total) + ' standard star images...', end='\r')
+        print('\rWriting out ' + str(counter) +  ' of ' + str(total) + ' standard star images...')
         write_out_fits(value, "sci/"+str(key))
-    print("Done!")
+    print("Done!"),
 
     # Create a list of reduced science frames for alignment.
     #

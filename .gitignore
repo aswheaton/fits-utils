@@ -103,5 +103,9 @@ venv.bak/
 # mypy
 .mypy_cache/
 
+# Folders to ignore.
+sci/*
+tmp/*
+
 # CCD datafiles.
 *.fits
