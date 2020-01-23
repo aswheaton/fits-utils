@@ -158,6 +158,55 @@ def normalise_flat(flat_array):
     normalised_flat = flat_array / mode(flat_array, axis=None)[0][0]
     return normalised_flat
 
+
+def weighted_mean_2D(cutout,**kwargs):
+    """
+        Recieves an argument of type ndarray and returns a tuple of the weighted
+        mean centroid of the object contained in the cutout.
+    """
+    x_sum = np.sum(cutout, axis=0)
+    y_sum = np.sum(cutout, axis=1)
+    x_avg = np.average(range(x_sum.size), weights=x_sum)
+    y_avg = np.average(range(y_sum.size), weights=y_sum)
+    if kwargs.get("floor") == True:
+        return((np.floor(x_avg), np.floor(y_avg)))
+    else:
+        return((x_avg, y_avg))
+
+def align(image_stack, **kwargs):
+    """
+    Recieves a list of image arrays and some "cutout" range containing a common
+    objecct to use for alignment of the image stack.
+
+    Returns a list of image arrays of different size, aligned, and with zero
+    borders where the image has been shifted.
+    """
+
+    cutout_range = kwargs.get("cutout")
+
+    # Get lists of all the x and y centroids.
+    for image in image_stack:
+        x_centroids.append(weighted_mean_2D(image[cutout_range])[0]):
+        y_centroids.append(weighted_mean_2D(image[cutout_range])[1]):
+    x_ref, y_ref = x_centroids.min(), y_centroids.min()
+    x_max, y_max = x_centroids.max(), y_centroids.max()
+    x_max_offset = x_max - x_ref
+    y_max_offset = y_max - y_ref
+    # Create new list of image arrays with offset.
+    aligned_image_stack = []
+    for image in image_stack:
+        aligned_image = np.zeros(image.size[0]+x_max_offset, image.size[1]+y_max_offset)
+        x_image_offset = weighted_mean_2D(image[cutout_range])[0] - x_ref
+        y_image_offset = weighted_mean_2D(image[cutout_range])[1] - y_ref
+        aligned_image[x_image_offset:,y_image_offset:] = image
+        aligned_image_stack.append(aligned_image)
+    return(aligned_image_stack)
+
+def stack(aligned_image_stack):
+    for image in aligned_image_stack:
+        stacked_image += image
+    return(stacked_image)
+
 # # Raw reduction function with fixed scope (doesn't live inside main():)
 # def reduce_raws(raw_list, master_dark_frame, master_flat_frame):
 #     """
@@ -199,6 +248,7 @@ def main():
     possible_bands = list(set(sub['band'] for sub in raw_flat_list))
 
     #: dict of ndarray: Contains master dark objects and integration_times.
+    print("Creating dark frames..."),
     master_dark_frame = {}
     for pos_int_time in possible_int_times:
         #: list of ndarray: Contains filenames of dark files.
@@ -210,8 +260,10 @@ def main():
                     data = hdul[0].data
                     sorted_dark_list.append(data)
         master_dark_frame[pos_int_time] = np.floor(np.median(sorted_dark_list, 0))
+    print("Done!")
 
     #: dict of ndarray: Master flat objects, bands, and integration times.
+    print("Creating flat frames..."),
     master_flat_frame = {}
     for pos_band in possible_bands:
         #: list of ndarray: Contains flat objects.
@@ -223,6 +275,7 @@ def main():
                     data = np.subtract(hdul[0].data, master_dark_frame[flat['integration_time']])
                     sorted_flat_list.append(data)
         master_flat_frame[pos_band] = normalise_flat(np.floor(np.median(sorted_flat_list, 0)))
+    print("Done!")
 
     # Why is this function defined inside the main? ~Wheaton
     def reduce_raws(raw_list):
@@ -238,12 +291,12 @@ def main():
         #: list of ndarray: Empty list for reduced images.
         science_list = {}
         for raw in raw_list:
-            print('\rReducing ' + str(len(science_list)) +  ' of ' + str(len(raw_list)) + ' images.'),
+            print('Reducing ' + str(len(science_list)) +  ' of ' + str(len(raw_list)) + ' images.', end='\r'),
             with fits.open(data_folder / raw['filename']) as hdul:
                 #: ndarray: Dark subtracted image data
                 ds_data = np.subtract(hdul[0].data, master_dark_frame[raw['integration_time']])
                 science_list[raw['filename']] = np.divide(ds_data, master_flat_frame[raw['band']])
-        print("Done!"),
+        print("\nDone!")
         return science_list
 
     # # Raw reduction with fixed scope issues. (No function definition inside main():)
@@ -263,24 +316,24 @@ def main():
     # write_out_fits(master_flat_frame, 'tmp/master_flat_frame.fits')
     # print("Done!")
 
-    print("Creating dark frames...")
+    print("Writing out dark frames..."),
     for key, value in master_dark_frame.items():
         write_out_fits(value, "tmp/"+"dark_"+str(key))
-    print("Done!"),
-    print("Creating flat frames...")
+    print("Done!")
+    print("Writing out flat frames..."),
     for key, value in master_flat_frame.items():
         write_out_fits(value, "tmp/"+"flat_"+str(key))
-    print("Done!"),
+    print("Done!")
 
     # Write out the reduced images for upload to astrometry.net.
-    counter = 0
-    total = len(reduced_target_list)
-    for key, value in reduced_target_list.items():
-        counter += 1
-        # write_out_fits(frame, "sci/" + "somehow get filename here")
-        print('\rWriting out ' + str(counter) +  ' of ' + str(total) + 'target images.')
-        write_out_fits(value, "sci/"+str(key))
-    print("Done!"),
+    # counter = 0
+    # total = len(reduced_target_list)
+    # for key, value in reduced_target_list.items():
+    #     counter += 1
+    #     # write_out_fits(frame, "sci/" + "somehow get filename here")
+    #     print('Writing out ' + str(counter) +  ' of ' + str(total) + ' target images.', end='\r'),
+    #     write_out_fits(value, "sci/"+str(key))
+    # print("\nDone!")
 
     # Write out the reduced images for upload to astrometry.net.
     counter = 0
@@ -288,9 +341,9 @@ def main():
     for key, value in reduced_std_star_list.items():
         counter += 1
         # write_out_fits(frame, "sci/" + "somehow get filename here")
-        print('\rWriting out ' + str(counter) +  ' of ' + str(total) + ' standard star images...')
+        print('Writing out ' + str(counter) +  ' of ' + str(total) + ' standard star images...', end='\r'),
         write_out_fits(value, "sci/"+str(key))
-    print("Done!"),
+    print("\nDone!")
 
     # Create a list of reduced science frames for alignment.
     #
