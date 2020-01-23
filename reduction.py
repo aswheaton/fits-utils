@@ -207,27 +207,6 @@ def stack(aligned_image_stack):
         stacked_image += image
     return(stacked_image)
 
-# # Raw reduction function with fixed scope (doesn't live inside main():)
-# def reduce_raws(raw_list, master_dark_frame, master_flat_frame):
-#     """
-#     Reduces raw images into science images. This function loops through a
-#     list of raws. Each raw image is dark subtracted and then flat divided.
-#
-#     Args:
-#         raw_list (list): List of raw ndarray objects.
-#     Returns:
-#         science_list (list): List of reduced ndarray objects.
-#     """
-#     #: list of ndarray: Empty list for reduced images.
-#     science_list = []
-#     for raw in raw_list:
-#         print('Reducing ' + str(len(science_list)) +  ' of ' + str(len(raw_list)) + ' images.', end='\r')
-#         with fits.open(data_folder / raw['filename']) as hdul:
-#             #: ndarray: Dark subtracted image data
-#             ds_data = np.subtract(hdul[0].data, master_dark_frame[raw['integration_time']])
-#             science_list.append(np.divide(ds_data, master_flat_frame[raw['band']]))
-#     return science_list
-
 def main():
     """
     Grabs sorted lists of files from get_lists function. Creates a list of
@@ -299,22 +278,10 @@ def main():
         print("\nDone!")
         return science_list
 
-    # # Raw reduction with fixed scope issues. (No function definition inside main():)
-    # #: list of ndarray objects: Reduced target image list.
-    # reduced_target_list = reduce_raws(raw_target_list, master_dark_frame, master_flat_frame)
-    # #: list of ndarray objects: Reduced standard star image list.
-    # reduced_std_star_list = reduce_raws(raw_std_star_list, master_dark_frame, master_flat_frame)
-
-    # Old raw reduction without fixed scope issues.
     #: dictionary of ndarray objects: Reduced target image list.
     reduced_target_list = reduce_raws(raw_target_list)
     #: dictionary of ndarray objects: Reduced standard star image list.
     reduced_std_star_list = reduce_raws(raw_std_star_list)
-
-    # print("Writing out master dark and flat frame...")
-    # write_out_fits(master_dark_frame, 'tmp/master_dark_frame.fits')
-    # write_out_fits(master_flat_frame, 'tmp/master_flat_frame.fits')
-    # print("Done!")
 
     print("Writing out dark frames..."),
     for key, value in master_dark_frame.items():
@@ -324,16 +291,6 @@ def main():
     for key, value in master_flat_frame.items():
         write_out_fits(value, "tmp/"+"flat_"+str(key))
     print("Done!")
-
-    # Write out the reduced images for upload to astrometry.net.
-    # counter = 0
-    # total = len(reduced_target_list)
-    # for key, value in reduced_target_list.items():
-    #     counter += 1
-    #     # write_out_fits(frame, "sci/" + "somehow get filename here")
-    #     print('Writing out ' + str(counter) +  ' of ' + str(total) + ' target images.', end='\r'),
-    #     write_out_fits(value, "sci/"+str(key))
-    # print("\nDone!")
 
     # Write out the reduced images for upload to astrometry.net.
     counter = 0
