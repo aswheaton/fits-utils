@@ -169,40 +169,50 @@ def weighted_mean_2D(cutout,**kwargs):
     x_avg = np.average(range(x_sum.size), weights=x_sum)
     y_avg = np.average(range(y_sum.size), weights=y_sum)
     if kwargs.get("floor") == True:
-        return((np.floor(x_avg), np.floor(y_avg)))
+        return((int(np.floor(x_avg)), int(np.floor(y_avg))))
     else:
         return((x_avg, y_avg))
 
 def align(image_stack, **kwargs):
     """
     Recieves a list of image arrays and some "cutout" range containing a common
-    objecct to use for alignment of the image stack.
+    object to use for alignment of the image stack.
 
     Returns a list of image arrays of different size, aligned, and with zero
     borders where the image has been shifted.
     """
-
-    cutout_range = kwargs.get("cutout")
-
+    x, y, dx, dy = kwargs.get("cutout")
     # Get lists of all the x and y centroids.
+    x_centroids, y_centroids = [], []
     for image in image_stack:
-        x_centroids.append(weighted_mean_2D(image[cutout_range])[0]):
-        y_centroids.append(weighted_mean_2D(image[cutout_range])[1]):
-    x_ref, y_ref = x_centroids.min(), y_centroids.min()
-    x_max, y_max = x_centroids.max(), y_centroids.max()
-    x_max_offset = x_max - x_ref
-    y_max_offset = y_max - y_ref
+        x_centroids.append(weighted_mean_2D(image[x:x+dx,y:y+dy],floor=True)[0])
+        y_centroids.append(weighted_mean_2D(image[x:x+dx,y:y+dy],floor=True)[1])
+    x_ref, y_ref = min(x_centroids), min(y_centroids)
+    x_max_offset = max(x_centroids) - min(x_centroids)
+    y_max_offset = max(y_centroids) - min(y_centroids)
     # Create new list of image arrays with offset.
+    aligned_image_size = ()
     aligned_image_stack = []
     for image in image_stack:
-        aligned_image = np.zeros(image.size[0]+x_max_offset, image.size[1]+y_max_offset)
-        x_image_offset = weighted_mean_2D(image[cutout_range])[0] - x_ref
-        y_image_offset = weighted_mean_2D(image[cutout_range])[1] - y_ref
-        aligned_image[x_image_offset:,y_image_offset:] = image
+        aligned_image = np.zeros((image.shape[0]+x_max_offset, image.shape[1]+y_max_offset))
+        x_image_offset = weighted_mean_2D(image[x:x+dx,y:y+dy],floor=True)[0] - x_ref
+        y_image_offset = weighted_mean_2D(image[x:x+dx,y:y+dy],floor=True)[1] - y_ref
+        aligned_image[x_image_offset:x_image_offset+image.shape[0],y_image_offset:y_image_offset+image.shape[1]] = image
         aligned_image_stack.append(aligned_image)
     return(aligned_image_stack)
 
 def stack(aligned_image_stack):
+    """
+        Receives a list of aligned images and returns their sum.
+    """
+    # Check that the aligned images to be stacked have matching dimensions.
+    for image in aligned_image_stack:
+        if image.shape != aligned_image_stack[0].shape:
+            print("Aligned image dimensions do not match!")
+            break
+    # If all dimensions match, initialise an empty array with those dimensions
+    # into which aligned images are stacked.
+    stacked_image = np.zeros(aligned_image_stack[0].shape)
     for image in aligned_image_stack:
         stacked_image += image
     return(stacked_image)
