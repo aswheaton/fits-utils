@@ -36,6 +36,7 @@ def get_lists(dir):
 
     Args:
         dir (str): The path of the directory to be used.
+
     Returns:
         dark_list (list): The list of 'dark' .fits files.
         flat_list (list): The list of 'flat' .fits files.
@@ -150,19 +151,42 @@ def average_frame(filelist, **kwargs):
         return average
 
 def write_out_fits(image, filename):
+    """
+    Creates a header for an ndarray of reduced data and then creates a new fits
+    file of this data.
+
+    Args:
+        image (ndarray): reduced data to be written to fits file.
+        filename (string): name (and location) of new fits file.
+    """
     hdu = fits.PrimaryHDU(image)
     hdul = fits.HDUList([hdu])
     hdul.writeto(filename, overwrite=True)
 
 def normalise_flat(flat_array):
+    """
+    Normalises the data in a flat frame by dividing each data value by the modal
+    value.
+
+    Args:
+        flat_array (ndarray): flat data to be normalised.
+    Returns:
+        normalised_flat (ndarray): new normalised flat data.
+    """
     normalised_flat = flat_array / mode(flat_array, axis=None)[0][0]
     return normalised_flat
 
 
 def weighted_mean_2D(cutout,**kwargs):
     """
-        Recieves an argument of type ndarray and returns a tuple of the weighted
-        mean centroid of the object contained in the cutout.
+    Recieves an argument of type ndarray and returns a tuple of the weighted
+    mean centroid of the object contained in the cutout.
+
+    Args:
+        cutout (ndarray): portion of fits full ndarray.
+    Returns:
+        x_avg (int): weighted mean of x values.
+        y_avg (int): weighted mean of y values.
     """
     x_sum = np.sum(cutout, axis=0)
     y_sum = np.sum(cutout, axis=1)
@@ -180,6 +204,12 @@ def align(image_stack, **kwargs):
 
     Returns a list of image arrays of different size, aligned, and with zero
     borders where the image has been shifted.
+
+    Args:
+        image_stack (list): frames to be aligned.
+    Returns:
+        aligned_image_stack (list): new frames that have been aligned and can be
+            stacked.
     """
     x, y, dx, dy = kwargs.get("cutout")
     # Get lists of all the x and y centroids.
@@ -204,6 +234,11 @@ def align(image_stack, **kwargs):
 def stack(aligned_image_stack):
     """
         Receives a list of aligned images and returns their sum.
+
+        Args:
+            aligned_image_stack (list): aligned frames ready to be stacked.
+        Returns:
+            stacked_image (ndarray): new combined single frame.
     """
     # Check that the aligned images to be stacked have matching dimensions.
     for image in aligned_image_stack:
@@ -273,9 +308,9 @@ def main():
         list of raws. Each raw image is dark subtracted and then flat divided.
 
         Args:
-            raw_list (list): List of raw ndarray objects.
+            raw_list (list): Raw ndarray objects.
         Returns:
-            science_list (list): List of reduced ndarray objects.
+            science_list (list): Reduced ndarray objects.
         """
         #: list of ndarray: Empty list for reduced images.
         science_list = {}
