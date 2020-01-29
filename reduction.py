@@ -203,6 +203,7 @@ def weighted_mean_2D(cutout,**kwargs):
         x_avg (int): weighted mean of x values.
         y_avg (int): weighted mean of y values.
     """
+    cutout += np.abs(np.min(cutout))
     x_sum = np.sum(cutout, axis=0)
     y_sum = np.sum(cutout, axis=1)
     x_avg = np.average(range(x_sum.size), weights=x_sum)
@@ -212,14 +213,37 @@ def weighted_mean_2D(cutout,**kwargs):
     else:
         return((x_avg, y_avg))
 
-def bad_centroid_2(cutout):
+def bad_centroid_1(cutout, **kwargs):
+    """
+    Returns the coordinates of the brightest pixel in cutout.
+    """
+    cutout += np.abs(np.min(cutout))
     x_sum = np.sum(cutout, axis=0)
     y_sum = np.sum(cutout, axis=1)
-    x_fwh = np.where(x_sum >= 0.5 * max(x_sum))
-    y_fwh = np.where(y_sum >= 0.5 * max(y_sum))
+    x_max = np.where(x_sum == max(x_sum))[0]
+    y_max = np.where(y_sum == max(y_sum))[0]
+    return((int(np.floor(x_max)), int(np.floor(y_max))))
+
+def bad_centroid_2(cutout, **kwargs):
+    print(np.amin(cutout))
+    cutout += np.abs(np.amin(cutout))
+    x_sum = np.sum(cutout, axis=0)
+    y_sum = np.sum(cutout, axis=1)
+    x_fwh = np.where(x_sum >= 0.67 * max(x_sum))
+    y_fwh = np.where(y_sum >= 0.67 * max(y_sum))
     x_avg = np.average(x_fwh[0], weights=x_sum[x_fwh])
     y_avg = np.average(y_fwh[0], weights=y_sum[y_fwh])
     return((int(np.floor(x_avg)), int(np.floor(y_avg))))
+
+def bad_centroid_3(cutout, **kwargs):
+    cutout += np.abs(np.min(cutout))
+    object_width = kwargs.get("owidth")
+    x_sum = np.sum(cutout, axis=0)
+    y_sum = np.sum(cutout, axis=1)
+    x_fwh = np.where(x_sum >= 0.67 * max(x_sum))
+    y_fwh = np.where(y_sum >= 0.67 * max(y_sum))
+    x_avg = np.average(x_fwh[0], weights=x_sum[x_fwh])
+    y_avg = np.average(y_fwh[0], weights=y_sum[y_fwh])
 
 def align(image_stack, **kwargs):
     """
@@ -236,11 +260,12 @@ def align(image_stack, **kwargs):
             stacked.
     """
     x, y, dx, dy = kwargs.get("cutout")
+    centroid = kwargs.get("centroid")
     # Get lists of all the x and y centroids.
     x_centroids, y_centroids = [], []
     for image in image_stack:
-        x_centroids.append(weighted_mean_2D(image[0].data[x:x+dx,y:y+dy],floor=True)[0])
-        y_centroids.append(weighted_mean_2D(image[0].data[x:x+dx,y:y+dy],floor=True)[1])
+        x_centroids.append(centroid(image[0].data[x:x+dx,y:y+dy],floor=True)[0])
+        y_centroids.append(centroid(image[0].data[x:x+dx,y:y+dy],floor=True)[1])
     x_ref, y_ref = min(x_centroids), min(y_centroids)
     x_max_offset = max(x_centroids) - min(x_centroids)
     y_max_offset = max(y_centroids) - min(y_centroids)
@@ -248,8 +273,8 @@ def align(image_stack, **kwargs):
     aligned_image_stack = []
     for image in image_stack:
         aligned_image = np.zeros((image[0].data.shape[0]+x_max_offset, image[0].data.shape[1]+y_max_offset))
-        x_image_offset = weighted_mean_2D(image[0].data[x:x+dx,y:y+dy],floor=True)[0] - x_ref
-        y_image_offset = weighted_mean_2D(image[0].data[x:x+dx,y:y+dy],floor=True)[1] - y_ref
+        x_image_offset = centroid(image[0].data[x:x+dx,y:y+dy],floor=True)[0] - x_ref
+        y_image_offset = centroid(image[0].data[x:x+dx,y:y+dy],floor=True)[1] - y_ref
         aligned_image[x_image_offset:x_image_offset+image[0].data.shape[0],y_image_offset:y_image_offset+image[0].data.shape[1]] = image[0].data
         aligned_image_stack.append(aligned_image)
     return(aligned_image_stack)
@@ -296,7 +321,7 @@ def main():
     print("Creating dark frames..."),
     master_dark_frame = {}
     for pos_int_time in possible_int_times:
-        #: list of ndarray: Contains filenames of dark files.
+        #: list of ndarray: Contains data of dark files.
         sorted_dark_list = []
         for dark in raw_dark_list:
             if dark["integration_time"] == pos_int_time:
@@ -374,10 +399,10 @@ def main():
 
 def test_main():
 
-    x, y, dx, dy = 300, 1400, 450, 500
+    x, y, dx, dy = 0, 0, 3351, 2531
 
     for target in ["m52"]:
-        for band in ["r"]:
+        for band in ["u"]:
             unaligned_images = load_fits(path="sci/", target=target, band=band)
             aligned_images = align(unaligned_images, cutout=(x,y,dx,dy), centroid=bad_centroid_2)
             stacked_image = stack(aligned_images)
@@ -389,6 +414,8 @@ def test_main():
     # Stack the frames and write out.
     # stacked_science_frame = stack_images(aligned_science_list)
     # write_out_fits(stacked_science_frame, filename)
+
+    # frame size: 3352x2532px
 
 # main()
 test_main()
