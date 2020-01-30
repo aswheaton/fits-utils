@@ -284,15 +284,15 @@ def align(image_stack, **kwargs):
     for image in image_stack:
         x_centroids.append(centroid(image[0].data[x:x+dx,y:y+dy],floor=True)[0])
         y_centroids.append(centroid(image[0].data[x:x+dx,y:y+dy],floor=True)[1])
-    x_ref, y_ref = min(x_centroids), min(y_centroids)
+    x_ref, y_ref = max(x_centroids), max(y_centroids)
     x_max_offset = max(x_centroids) - min(x_centroids)
     y_max_offset = max(y_centroids) - min(y_centroids)
     # Create new list of image arrays with offset.
     aligned_image_stack = []
     for image in image_stack:
         aligned_image = np.zeros((image[0].data.shape[0]+x_max_offset, image[0].data.shape[1]+y_max_offset))
-        x_image_offset = centroid(image[0].data[x:x+dx,y:y+dy],floor=True)[0] - x_ref
-        y_image_offset = centroid(image[0].data[x:x+dx,y:y+dy],floor=True)[1] - y_ref
+        x_image_offset = x_ref - centroid(image[0].data[x:x+dx,y:y+dy],floor=True)[0]
+        y_image_offset = y_ref - centroid(image[0].data[x:x+dx,y:y+dy],floor=True)[1]
         aligned_image[x_image_offset:x_image_offset+image[0].data.shape[0],y_image_offset:y_image_offset+image[0].data.shape[1]] = image[0].data
         aligned_image_stack.append(aligned_image)
     return(aligned_image_stack)
