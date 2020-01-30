@@ -102,7 +102,7 @@ def load_fits(**kwargs):
                 pass
             elif target_id in filename and band in filename:
                 int_time = filename.split("_")[2][:-1]
-                print(target_id, band, int_time, filename)
+                print(target_id, band, int_time, " matched ", filename)
                 hdul = fits.open(root + filename)
                 hdul[0].header["EXPTIME"] = int_time
                 hdul[0].header["TARGTID"] = target_id
@@ -203,11 +203,13 @@ def weighted_mean_2D(cutout,**kwargs):
         x_avg (int): weighted mean of x values.
         y_avg (int): weighted mean of y values.
     """
-    cutout += np.abs(np.min(cutout))
     x_sum = np.sum(cutout, axis=0)
     y_sum = np.sum(cutout, axis=1)
     x_avg = np.average(range(x_sum.size), weights=x_sum)
     y_avg = np.average(range(y_sum.size), weights=y_sum)
+    # plt.imshow(cutout)
+    # plt.scatter(x_avg, y_avg, s=2, c='red', marker='o')
+    # plt.show()
     if kwargs.get("floor") == True:
         return((int(np.floor(x_avg)), int(np.floor(y_avg))))
     else:
@@ -222,6 +224,9 @@ def max_value_centroid(cutout, **kwargs):
     y_sum = np.sum(cutout, axis=1)
     x_max = np.where(x_sum == max(x_sum))[0]
     y_max = np.where(y_sum == max(y_sum))[0]
+    # plt.imshow(cutout)
+    # plt.scatter(x_max, y_max, s=2, c='red', marker='o')
+    # plt.show()
     return((int(np.floor(x_max)), int(np.floor(y_max))))
 
 def threshold_centroid(cutout, **kwargs):
@@ -229,14 +234,32 @@ def threshold_centroid(cutout, **kwargs):
     Returns the weighted mean centroid of values above 2/3 the maximum value in
     a cutout of an array.
     """
-    cutout += np.abs(np.amin(cutout))
     x_sum = np.sum(cutout, axis=0)
     y_sum = np.sum(cutout, axis=1)
     x_fwh = np.where(x_sum >= 0.67 * max(x_sum))
     y_fwh = np.where(y_sum >= 0.67 * max(y_sum))
     x_avg = np.average(x_fwh[0], weights=x_sum[x_fwh])
     y_avg = np.average(y_fwh[0], weights=y_sum[y_fwh])
+    # plt.imshow(cutout)
+    # plt.scatter(x_avg, y_avg, s=2, c='red', marker='o')
+    # plt.show()
     return((int(np.floor(x_avg)), int(np.floor(y_avg))))
+
+def hybrid_centroid(cutout, **kwargs):
+    # Get the maximum value of the cutout as an initial guess.
+    x_max, y_max = max_value_centroid(cutout)
+    # Create a smaller cutout around the initial guess.
+    obj_size = 50
+    reduced_cutout = cutout[x_max-obj_size:x_max+obj_size,y_max-obj_size:y_max+obj_size]
+    # Get the mean weighted average of the smaller cutout.
+    x_new, y_new = weighted_mean_2D(reduced_cutout, floor=True)
+    # Map the centroid back to coordinates of original cutout.
+    x_avg = x_max - obj_size + x_new
+    y_avg = y_max - obj_size + y_new
+    # plt.imshow(cutout)
+    # plt.scatter(x_avg, y_avg, s=2, c='red', marker='o')
+    # plt.show()
+    return((x_avg, y_avg))
 
 def align(image_stack, **kwargs):
     """
@@ -248,6 +271,8 @@ def align(image_stack, **kwargs):
 
     Args:
         image_stack (list): frames to be aligned.
+        centroid (func_handle): function handle for arbitrary centroiding
+        which returns a tuple.
     Returns:
         aligned_image_stack (list): new frames that have been aligned and can be
             stacked.
@@ -392,12 +417,15 @@ def main():
 
 def test_main():
 
+    # x, y, dx, dy = 350, 1450, 350, 350plt.imshow(cutout)
     x, y, dx, dy = 0, 0, 3351, 2531
+    # the radius, in pixels, of the reference star
+    obj_size = 50
 
     for target in ["m52"]:
-        for band in ["r","g"]:
+        for band in ["r","g","u"]:
             unaligned_images = load_fits(path="sci/", target=target, band=band)
-            aligned_images = align(unaligned_images, cutout=(x,y,dx,dy), centroid=bad_centroid_2)
+            aligned_images = align(unaligned_images, cutout=(x,y,dx,dy), centroid=hybrid_centroid)
             stacked_image = stack(aligned_images)
             write_out_fits(stacked_image, "sta/" + target + "_" + band + "_stacked.fits")
 
