@@ -213,9 +213,9 @@ def weighted_mean_2D(cutout,**kwargs):
     else:
         return((x_avg, y_avg))
 
-def bad_centroid_1(cutout, **kwargs):
+def max_value_centroid(cutout, **kwargs):
     """
-    Returns the coordinates of the brightest pixel in cutout.
+    Returns the coordinates of the brightest pixel in a cutout of an array.
     """
     cutout += np.abs(np.min(cutout))
     x_sum = np.sum(cutout, axis=0)
@@ -224,8 +224,11 @@ def bad_centroid_1(cutout, **kwargs):
     y_max = np.where(y_sum == max(y_sum))[0]
     return((int(np.floor(x_max)), int(np.floor(y_max))))
 
-def bad_centroid_2(cutout, **kwargs):
-    print(np.amin(cutout))
+def threshold_centroid(cutout, **kwargs):
+    """
+    Returns the weighted mean centroid of values above 2/3 the maximum value in
+    a cutout of an array.
+    """
     cutout += np.abs(np.amin(cutout))
     x_sum = np.sum(cutout, axis=0)
     y_sum = np.sum(cutout, axis=1)
@@ -234,16 +237,6 @@ def bad_centroid_2(cutout, **kwargs):
     x_avg = np.average(x_fwh[0], weights=x_sum[x_fwh])
     y_avg = np.average(y_fwh[0], weights=y_sum[y_fwh])
     return((int(np.floor(x_avg)), int(np.floor(y_avg))))
-
-def bad_centroid_3(cutout, **kwargs):
-    cutout += np.abs(np.min(cutout))
-    object_width = kwargs.get("owidth")
-    x_sum = np.sum(cutout, axis=0)
-    y_sum = np.sum(cutout, axis=1)
-    x_fwh = np.where(x_sum >= 0.67 * max(x_sum))
-    y_fwh = np.where(y_sum >= 0.67 * max(y_sum))
-    x_avg = np.average(x_fwh[0], weights=x_sum[x_fwh])
-    y_avg = np.average(y_fwh[0], weights=y_sum[y_fwh])
 
 def align(image_stack, **kwargs):
     """
@@ -402,7 +395,7 @@ def test_main():
     x, y, dx, dy = 0, 0, 3351, 2531
 
     for target in ["m52"]:
-        for band in ["u"]:
+        for band in ["r","g"]:
             unaligned_images = load_fits(path="sci/", target=target, band=band)
             aligned_images = align(unaligned_images, cutout=(x,y,dx,dy), centroid=bad_centroid_2)
             stacked_image = stack(aligned_images)
