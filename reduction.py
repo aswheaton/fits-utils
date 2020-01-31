@@ -225,6 +225,7 @@ def weighted_mean_2D(cutout,**kwargs):
         x_avg (int): weighted mean of x values.
         y_avg (int): weighted mean of y values.
     """
+    cutout += np.abs(np.amin(cutout))
     x_sum = np.sum(cutout, axis=0)
     y_sum = np.sum(cutout, axis=1)
     x_avg = np.average(range(x_sum.size), weights=x_sum)
@@ -252,7 +253,7 @@ def max_value_centroid(image_data, **kwargs):
     # plt.imshow(cutout)
     # plt.scatter(x_max, y_max, s=2, c='red', marker='o')
     # plt.show()
-    return((int(np.floor(x_max)), int(np.floor(y_max))))
+    return((x_max[0], y_max[0]))
 
 def threshold_centroid(cutout, **kwargs):
     """
@@ -338,10 +339,9 @@ def old_align(image_stack, **kwargs):
 
 def align(images, **kwargs):
     """
-    Recieves a list of image arrays and some "cutout" range containing a common
-    object to use for alignment of the image stack. Returns a list of image
-    arrays of different size, aligned, and with zero borders where the image has
-    been shifted.
+    Recieves a list of image arrays containing a common object to use for
+    alignment of the image stack. Returns a list of image arrays of different
+    size, aligned, and with zero borders where the image has been shifted.
 
     Args:
         images (list): Frames to be aligned.
