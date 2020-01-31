@@ -106,8 +106,30 @@ def load_fits(**kwargs):
                 hdul = fits.open(root + filename)
                 hdul[0].header["EXPTIME"] = int_time
                 hdul[0].header["TARGTID"] = target_id
-                images.append(fits.open(root + filename))
-    return(images)
+                hdul[0].header["FILENME"] = filename
+                images.append(hdul)
+
+    # Check that all the sizes of the loaded fits objects match.
+    x_sizes, y_sizes = [], []
+    for image in images:
+        x_sizes.append(image[0].data.shape[0])
+        y_sizes.append(image[0].data.shape[1])
+    # If all fits object dimensions match, return the existing list of objects.
+    if all(x==x_sizes[0] for x in x_sizes) and all(y==y_sizes[0] for y in y_sizes):
+        return(images)
+    # If not, cast them into arrays of zeros with matching dimensions and copy
+    # the header data over to the newly created fits objects.
+    else:
+        framed_images = []
+        for image in images:
+            framed_image = np.zeros((max(x_sizes),max(y_sizes)))
+            framed_image[:image[0].data.shape[0],:image[0].data.shape[1]] = image[0].data
+            hdul = fits.HDUList([fits.PrimaryHDU(framed_image)])
+            hdul[0].header["EXPTIME"] = image[0].header["EXPTIME"]
+            hdul[0].header["TARGTID"] = image[0].header["TARGTID"]
+            hdul[0].header["FILENME"] = image[0].header["FILENME"]
+            framed_images.append(hdul)
+        return(framed_images)
 
 def median(list):
     """
@@ -482,12 +504,10 @@ def main_2():
             write_out_fits(stacked_image, "sta/" + target + "_" + band + "_stacked.fits")
 
 def main_3():
-    for target in ["m52"]:
-        for band in ["r","g","u"]:
-            unaligned_images = load_fits(path="sta/", target=target, band=band)
-            aligned_images = align(unaligned_images, centroid=hybrid_centroid)
-            rgb(aligned_images)
+    unaligned_images = load_fits(path="sta/", target="m52", band="")
+    aligned_images = align(unaligned_images, centroid=hybrid_centroid)
+    rgb(aligned_images[0],aligned_images[1],aligned_images[1])
 
 # main_1()
-main_2()
-# main_3()
+# main_2()
+main_3()
