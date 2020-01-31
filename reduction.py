@@ -215,15 +215,18 @@ def weighted_mean_2D(cutout,**kwargs):
     else:
         return((x_avg, y_avg))
 
-def max_value_centroid(cutout, **kwargs):
+def max_value_centroid(image_data, **kwargs):
     """
-    Returns the coordinates of the brightest pixel in a cutout of an array.
+    Receives an image array and returns the coordinates of the brightest pixel
+    in that image array.
+
+    Args:
+        image_data (2darray): The image array to be searched.
+    Returns:
+        (x_max,y_max) (tuple): pixel coordinates of the maximum value of the
+            image array.
     """
-    cutout += np.abs(np.min(cutout))
-    x_sum = np.sum(cutout, axis=0)
-    y_sum = np.sum(cutout, axis=1)
-    x_max = np.where(x_sum == max(x_sum))[0]
-    y_max = np.where(y_sum == max(y_sum))[0]
+    x_max, y_max = np.where(image_data == np.amax(image_data))
     # plt.imshow(cutout)
     # plt.scatter(x_max, y_max, s=2, c='red', marker='o')
     # plt.show()
@@ -231,6 +234,7 @@ def max_value_centroid(cutout, **kwargs):
 
 def threshold_centroid(cutout, **kwargs):
     """
+    DEPRECATED
     Returns the weighted mean centroid of values above 2/3 the maximum value in
     a cutout of an array.
     """
@@ -245,45 +249,58 @@ def threshold_centroid(cutout, **kwargs):
     # plt.show()
     return((int(np.floor(x_avg)), int(np.floor(y_avg))))
 
-def hybrid_centroid(cutout, **kwargs):
+def hybrid_centroid(image_data, **kwargs):
+    """
+    Recieves an array of image data and returns the pixel coordinates of the
+    centroid of the brightest star in the frame. Makes an initial guess at the
+    position of the star by finding the maximum value in the array, then
+    performs a weighted mean in two dimensions about the guess for finer accuracy.
+
+    Args:
+        image_data (2darray): array of image data containing reference star.
+        size (int): the radius of the reference star, in pixels. Used to create
+            cutout of appropriate size.
+    Returns:
+        (x_avg,y_avg) (tuple): pixel coordinates of the centroid of the
+            brightest star in the image array.
+    """
     # Get the maximum value of the cutout as an initial guess.
-    x_max, y_max = max_value_centroid(cutout)
+    x_max, y_max = max_value_centroid(image_data)
     # Create a smaller cutout around the initial guess.
-    obj_size = 50
-    reduced_cutout = cutout[x_max-obj_size:x_max+obj_size,y_max-obj_size:y_max+obj_size]
+    size = kwargs.get("size")
+    cutout = image_data[x_max-size:x_max+size,y_max-size:y_max+size]
     # Get the mean weighted average of the smaller cutout.
-    x_new, y_new = weighted_mean_2D(reduced_cutout, floor=True)
+    x_new, y_new = weighted_mean_2D(cutout, floor=True)
     # Map the centroid back to coordinates of original cutout.
-    x_avg = x_max - obj_size + x_new
-    y_avg = y_max - obj_size + y_new
+    x_avg = x_max - size + x_new
+    y_avg = y_max - size + y_new
     # plt.imshow(cutout)
     # plt.scatter(x_avg, y_avg, s=2, c='red', marker='o')
     # plt.show()
     return((x_avg, y_avg))
 
-def align(image_stack, **kwargs):
+def old_align(image_stack, **kwargs):
     """
+    DEPRECATED
     Recieves a list of image arrays and some "cutout" range containing a common
-    object to use for alignment of the image stack.
-
-    Returns a list of image arrays of different size, aligned, and with zero
-    borders where the image has been shifted.
+    object to use for alignment of the image stack. Returns a list of image
+    arrays of different size, aligned, and with zero borders where the image has
+    been shifted.
 
     Args:
         image_stack (list): frames to be aligned.
         centroid (func_handle): function handle for arbitrary centroiding
-        which returns a tuple.
+            function which returns a position tuple.
     Returns:
         aligned_image_stack (list): new frames that have been aligned and can be
             stacked.
     """
-    x, y, dx, dy = kwargs.get("cutout")
     centroid = kwargs.get("centroid")
     # Get lists of all the x and y centroids.
     x_centroids, y_centroids = [], []
     for image in image_stack:
-        x_centroids.append(centroid(image[0].data[x:x+dx,y:y+dy],floor=True)[0])
-        y_centroids.append(centroid(image[0].data[x:x+dx,y:y+dy],floor=True)[1])
+        x_centroids.append(centroid(image[0].data, size=50)[0])
+        y_centroids.append(centroid(image[0].data, size=50)[1])
     x_ref, y_ref = max(x_centroids), max(y_centroids)
     x_max_offset = max(x_centroids) - min(x_centroids)
     y_max_offset = max(y_centroids) - min(y_centroids)
@@ -291,20 +308,50 @@ def align(image_stack, **kwargs):
     aligned_image_stack = []
     for image in image_stack:
         aligned_image = np.zeros((image[0].data.shape[0]+x_max_offset, image[0].data.shape[1]+y_max_offset))
-        x_image_offset = x_ref - centroid(image[0].data[x:x+dx,y:y+dy],floor=True)[0]
-        y_image_offset = y_ref - centroid(image[0].data[x:x+dx,y:y+dy],floor=True)[1]
+        x_image_offset = x_ref - centroid(image[0].data, size=50)[0]
+        y_image_offset = y_ref - centroid(image[0].data, size=50)[1]
         aligned_image[x_image_offset:x_image_offset+image[0].data.shape[0],y_image_offset:y_image_offset+image[0].data.shape[1]] = image[0].data
         aligned_image_stack.append(aligned_image)
     return(aligned_image_stack)
 
+def align(images, **kwargs):
+    """
+    Recieves a list of image arrays and some "cutout" range containing a common
+    object to use for alignment of the image stack. Returns a list of image
+    arrays of different size, aligned, and with zero borders where the image has
+    been shifted.
+
+    Args:
+        images (list): Frames to be aligned.
+
+    Returns:
+        aligned_images (list): new frames that have been aligned and can be
+            stacked.
+    """
+    x_centroids, y_centroids = [], []
+    for image in images:
+        x_centroids.append(hybrid_centroid(image[0].data, size=50)[0])
+        y_centroids.append(hybrid_centroid(image[0].data, size=50)[1])
+    max_pos = (max(x_centroids), max(y_centroids))
+    min_pos = (min(x_centroids), min(y_centroids))
+    max_dif = (max_pos[0]-min_pos[0], max_pos[1]-min_pos[1])
+    aligned_images = []
+    for image in images:
+        aligned_image = np.zeros((image[0].data.shape[0]+max_dif[0], image[0].data.shape[1]+max_dif[1]))
+        disp = (max_pos[0] - hybrid_centroid(image[0].data, size=50)[0], max_pos[1] - hybrid_centroid(image[0].data, size=50)[1])
+        aligned_image[disp[0]:disp[0]+image[0].data.shape[0],disp[1]:disp[1]+image[0].data.shape[1]] = image[0].data
+        aligned_images.append(aligned_image)
+    return aligned_images
+
 def stack(aligned_image_stack):
     """
-    Receives a list of aligned images and returns their sum.
+    Receives a list of aligned images and returns their summation along the axis
+    of the list.#
 
     Args:
         aligned_image_stack (list): aligned frames ready to be stacked.
     Returns:
-        stacked_image (ndarray): new combined single frame.
+        stacked_image (2darray): new combined single frame.
     """
     # Check that the aligned images to be stacked have matching dimensions.
     for image in aligned_image_stack:
@@ -318,7 +365,18 @@ def stack(aligned_image_stack):
         stacked_image += image
     return(stacked_image)
 
-def main():
+def rgb(image_r, image_g, image_b):
+    """
+        Recieves three arrays of equal size. Maps these values to RGB values
+        using the Lupton algorithm and displays the resulting image.
+        # TODO: Retrieve the source for this algorithm.
+    """
+    from astropy.visualization import make_lupton_rgb
+    rgb_image = make_lupton_rgb(image_r, image_g, image_b, Q=10, stretch=1000.)
+    plt.imshow(rgb_image)
+    plt.show()
+
+def main_1():
     """
     Grabs sorted lists of files from get_lists function. Creates a list of
     possible integration times from the dark files. Combines darks and flats
@@ -371,7 +429,7 @@ def main():
 
         Args:
             raw_list (list): Raw ndarray objects.
-    , "g", "r"]    Returns:
+        Returns:
             science_list (list): Reduced ndarray objects.
         """
         #: list of ndarray: Empty list for reduced images.
@@ -415,28 +473,21 @@ def main():
         write_out_fits(value, "sci/"+str(key))
     print("\nDone!")
 
-def test_main():
-
-    # x, y, dx, dy = 350, 1450, 350, 350plt.imshow(cutout)
-    x, y, dx, dy = 0, 0, 3351, 2531
-    # the radius, in pixels, of the reference star
-    obj_size = 50
-
+def main_2():
     for target in ["m52"]:
         for band in ["r","g","u"]:
             unaligned_images = load_fits(path="sci/", target=target, band=band)
-            aligned_images = align(unaligned_images, cutout=(x,y,dx,dy), centroid=hybrid_centroid)
+            aligned_images = align(unaligned_images, centroid=hybrid_centroid)
             stacked_image = stack(aligned_images)
             write_out_fits(stacked_image, "sta/" + target + "_" + band + "_stacked.fits")
 
-    # Create a list of reduced science frames for alignment.
-    # Align images.
-    # aligned_science_list = align_images(science_list)
-    # Stack the frames and write out.
-    # stacked_science_frame = stack_images(aligned_science_list)
-    # write_out_fits(stacked_science_frame, filename)
+def main_3():
+    for target in ["m52"]:
+        for band in ["r","g","u"]:
+            unaligned_images = load_fits(path="sta/", target=target, band=band)
+            aligned_images = align(unaligned_images, centroid=hybrid_centroid)
+            rgb(aligned_images)
 
-    # frame size: 3352x2532px
-
-# main()
-test_main()
+# main_1()
+main_2()
+# main_3()
