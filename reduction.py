@@ -214,30 +214,6 @@ def normalise_flat(flat_array):
     normalised_flat = flat_array / mode(flat_array, axis=None)[0][0]
     return normalised_flat
 
-def weighted_mean_2D(cutout,**kwargs):
-    """
-    Recieves an argument of type ndarray and returns a tuple of the weighted
-    mean centroid of the object contained in the cutout.
-
-    Args:
-        cutout (ndarray): portion of fits full ndarray.
-    Returns:
-        x_avg (int): weighted mean of x values.
-        y_avg (int): weighted mean of y values.
-    """
-    cutout += np.abs(np.amin(cutout))
-    x_sum = np.sum(cutout, axis=0)
-    y_sum = np.sum(cutout, axis=1)
-    x_avg = np.average(range(x_sum.size), weights=x_sum)
-    y_avg = np.average(range(y_sum.size), weights=y_sum)
-    # plt.imshow(cutout)
-    # plt.scatter(x_avg, y_avg, s=2, c='red', marker='o')
-    # plt.show()
-    if kwargs.get("floor") == True:
-        return((int(np.floor(x_avg)), int(np.floor(y_avg))))
-    else:
-        return((x_avg, y_avg))
-
 def max_value_centroid(image_data, **kwargs):
     """
     Receives an image array and returns the coordinates of the brightest pixel
@@ -271,6 +247,58 @@ def threshold_centroid(cutout, **kwargs):
     # plt.scatter(x_avg, y_avg, s=2, c='red', marker='o')
     # plt.show()
     return((int(np.floor(x_avg)), int(np.floor(y_avg))))
+
+def create_mask(image_data, **kwargs):
+    # Offset image so that all values are positive
+    image_data += np.abs(np.amin(image_data))
+    mask = np.empty(image_data.shape)
+    # Boundary condition to prevent indexing errors.
+    def bc(i,j):
+        return((i%image_data.shape[0], j%image_data.shape[1]))
+    # Invalidate values based on the value of their neighbors (slow).
+    if kwargs.get("condition") == "neighbors":
+        for i in range(image_data.shape[0]):
+            for j in range(image_data.shape[1]):
+                # TODO: Boundary condition is efficient but currently makes image toroidal, which is a complication.
+                neighbors_sum = image_data[bc(i-1,j)]+image_data[bc(i+1,j)]+image_data[bc(i,j-1)]+image_data[bc(i,j+1)]
+                if image_data[i,j] >= neighbors_sum:
+                    mask[i,j] = 0.0
+                else:
+                    mask[i,j] = 1.0
+    # Invalidate values that fall below a certain threshold (fast).
+    if kwargs.get("condition") == "threshold":
+        max_value = np.amax(image_data)
+        for i in range(image_data.shape[0]):
+            for j in range(image_data.shape[1]):
+                if image_data[i,j] <= 0.67 * max_value:
+                    mask[i,j] = 0.0
+                else:
+                    mask[i,j] = 1.0
+    return(mask)
+
+def weighted_mean_2D(cutout,**kwargs):
+    """
+    Recieves an argument of type ndarray and returns a tuple of the weighted
+    mean centroid of the object contained in the cutout.
+
+    Args:
+        cutout (ndarray): portion of fits full ndarray.
+    Returns:
+        x_avg (int): weighted mean of x values.
+        y_avg (int): weighted mean of y values.
+    """
+    cutout += np.abs(np.amin(cutout))
+    x_sum = np.sum(cutout, axis=0)
+    y_sum = np.sum(cutout, axis=1)
+    x_avg = np.average(range(x_sum.size), weights=x_sum)
+    y_avg = np.average(range(y_sum.size), weights=y_sum)
+    # plt.imshow(cutout)
+    # plt.scatter(x_avg, y_avg, s=2, c='red', marker='o')
+    # plt.show()
+    if kwargs.get("floor") == True:
+        return((int(np.floor(x_avg)), int(np.floor(y_avg))))
+    else:
+        return((x_avg, y_avg))
 
 def hybrid_centroid(image_data, **kwargs):
     """
@@ -306,34 +334,6 @@ def hybrid_centroid(image_data, **kwargs):
     # plt.scatter(x_avg, y_avg, s=2, c='red', marker='o')
     # plt.show()
     return((x_avg, y_avg))
-
-def create_mask(image_data, **kwargs):
-    # Offset image so that all values are positive
-    image_data += np.abs(np.amin(image_data))
-    mask = np.empty(image_data.shape)
-    # Boundary condition to prevent indexing errors.
-    def bc(i,j):
-        return((i%image_data.shape[0], j%image_data.shape[1]))
-    # Invalidate values based on the value of their neighbors (slow).
-    if kwargs.get("condition") == "neighbors":
-        for i in range(image_data.shape[0]):
-            for j in range(image_data.shape[1]):
-                # TODO: Boundary condition is efficient but currently makes image toroidal, which is a complication.
-                neighbors_sum = image_data[bc(i-1,j)]+image_data[bc(i+1,j)]+image_data[bc(i,j-1)]+image_data[bc(i,j+1)]
-                if image_data[i,j] >= neighbors_sum:
-                    mask[i,j] = 0.0
-                else:
-                    mask[i,j] = 1.0
-    # Invalidate values that fall below a certain threshold (fast).
-    if kwargs.get("condition") == "threshold":
-        max_value = np.amax(image_data)
-        for i in range(image_data.shape[0]):
-            for j in range(image_data.shape[1]):
-                if image_data[i,j] <= 0.67 * max_value:
-                    mask[i,j] = 0.0
-                else:
-                    mask[i,j] = 1.0
-    return(mask)
 
 def old_align(image_stack, **kwargs):
     """
@@ -545,6 +545,6 @@ def main_3():
     aligned_images = align(unaligned_images, centroid=hybrid_centroid, mask=False)
     rgb(aligned_images[0],aligned_images[1],aligned_images[1])
 
-# main_1()
+main_1()
 main_2()
-# main_3()
+main_3()
