@@ -287,8 +287,13 @@ def hybrid_centroid(image_data, **kwargs):
         (x_avg,y_avg) (tuple): pixel coordinates of the centroid of the
             brightest star in the image array.
     """
+    # Attempt to invalidate pixels which may confuse the initial guess.
+    if kwargs.get("mask") == True:
+        masked_data = np.ma.array(image_data, mask=create_mask(image_data, condition="neighbors"))
+        x_max, y_max = max_value_centroid(masked_data)
     # Get the maximum value of the cutout as an initial guess.
-    x_max, y_max = max_value_centroid(image_data)
+    else:
+        x_max, y_max = max_value_centroid(image_data)
     # Create a smaller cutout around the initial guess.
     size = kwargs.get("size")
     cutout = image_data[x_max-size:x_max+size,y_max-size:y_max+size]
@@ -301,6 +306,34 @@ def hybrid_centroid(image_data, **kwargs):
     # plt.scatter(x_avg, y_avg, s=2, c='red', marker='o')
     # plt.show()
     return((x_avg, y_avg))
+
+def create_mask(image_data, **kwargs):
+    # Offset image so that all values are positive
+    image_data += np.abs(np.amin(image_data))
+    mask = np.empty(image_data.shape)
+    # Boundary condition to prevent indexing errors.
+    def bc(i,j):
+        return((i%image_data.shape[0], j%image_data.shape[1]))
+    # Invalidate values based on the value of their neighbors (slow).
+    if kwargs.get("condition") == "neighbors":
+        for i in range(image_data.shape[0]):
+            for j in range(image_data.shape[1]):
+                # TODO: Boundary condition is efficient but currently makes image toroidal, which is a complication.
+                neighbors_sum = image_data[bc(i-1,j)]+image_data[bc(i+1,j)]+image_data[bc(i,j-1)]+image_data[bc(i,j+1)]
+                if image_data[i,j] >= neighbors_sum:
+                    mask[i,j] = 0.0
+                else:
+                    mask[i,j] = 1.0
+    # Invalidate values that fall below a certain threshold (fast).
+    if kwargs.get("condition") == "threshold":
+        max_value = np.amax(image_data)
+        for i in range(image_data.shape[0]):
+            for j in range(image_data.shape[1]):
+                if image_data[i,j] <= 0.67 * max_value:
+                    mask[i,j] = 0.0
+                else:
+                    mask[i,j] = 1.0
+    return(mask)
 
 def old_align(image_stack, **kwargs):
     """
@@ -350,17 +383,21 @@ def align(images, **kwargs):
         aligned_images (list): new frames that have been aligned and can be
             stacked.
     """
+    # Boolean, whether or not to mask images for hot pixels on the detector.
+    mask = kwargs.get("mask")
+    # Find the centroid of the reference star in each image.
     x_centroids, y_centroids = [], []
     for image in images:
-        x_centroids.append(hybrid_centroid(image[0].data, size=50)[0])
-        y_centroids.append(hybrid_centroid(image[0].data, size=50)[1])
+        x_centroids.append(hybrid_centroid(image[0].data, size=50, mask=mask)[0])
+        y_centroids.append(hybrid_centroid(image[0].data, size=50, mask=mask)[1])
     max_pos = (max(x_centroids), max(y_centroids))
     min_pos = (min(x_centroids), min(y_centroids))
     max_dif = (max_pos[0]-min_pos[0], max_pos[1]-min_pos[1])
+    # Create new stack of aligned images using the centroid in each frame.
     aligned_images = []
     for image in images:
         aligned_image = np.zeros((image[0].data.shape[0]+max_dif[0], image[0].data.shape[1]+max_dif[1]))
-        disp = (max_pos[0] - hybrid_centroid(image[0].data, size=50)[0], max_pos[1] - hybrid_centroid(image[0].data, size=50)[1])
+        disp = (max_pos[0] - hybrid_centroid(image[0].data, size=50, mask=mask)[0], max_pos[1] - hybrid_centroid(image[0].data, size=50, mask=mask)[1])
         aligned_image[disp[0]:disp[0]+image[0].data.shape[0],disp[1]:disp[1]+image[0].data.shape[1]] = image[0].data
         aligned_images.append(aligned_image)
     return aligned_images
@@ -497,17 +534,17 @@ def main_1():
 
 def main_2():
     for target in ["m52"]:
-        for band in ["r","g","u"]:
+        for band in ["u"]:
             unaligned_images = load_fits(path="sci/", target=target, band=band)
-            aligned_images = align(unaligned_images, centroid=hybrid_centroid)
+            aligned_images = align(unaligned_images, centroid=hybrid_centroid, mask=False)
             stacked_image = stack(aligned_images)
             write_out_fits(stacked_image, "sta/" + target + "_" + band + "_stacked.fits")
 
 def main_3():
     unaligned_images = load_fits(path="sta/", target="m52", band="")
-    aligned_images = align(unaligned_images, centroid=hybrid_centroid)
+    aligned_images = align(unaligned_images, centroid=hybrid_centroid, mask=False)
     rgb(aligned_images[0],aligned_images[1],aligned_images[1])
 
 # main_1()
-# main_2()
-main_3()
+main_2()
+# main_3()
