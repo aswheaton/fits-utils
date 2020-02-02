@@ -252,28 +252,27 @@ def create_mask(image_data, **kwargs):
     # Offset image so that all values are positive
     image_data += np.abs(np.amin(image_data))
     mask = np.empty(image_data.shape)
-    # Boundary condition to prevent indexing errors.
-    def bc(i,j):
-        return((i%image_data.shape[0], j%image_data.shape[1]))
     # Invalidate values based on the value of their neighbors (slow).
     if kwargs.get("condition") == "neighbors":
         for i in range(image_data.shape[0]):
             for j in range(image_data.shape[1]):
-                # TODO: Boundary condition is efficient but currently makes image toroidal, which is a complication.
-                neighbors_sum = image_data[bc(i-1,j)]+image_data[bc(i+1,j)]+image_data[bc(i,j-1)]+image_data[bc(i,j+1)]
-                if image_data[i,j] >= neighbors_sum:
-                    mask[i,j] = 0.0
-                else:
-                    mask[i,j] = 1.0
+                try:
+                    neighbors_sum = image_data[bc(i-1,j)]+image_data[bc(i+1,j)]+image_data[bc(i,j-1)]+image_data[bc(i,j+1)]
+                    if image_data[i,j] >= neighbors_sum:
+                        mask[i,j] = 0
+                    else:
+                        mask[i,j] = 1
+                except IndexError:
+                    mask[i,j] = 0
     # Invalidate values that fall below a certain threshold (fast).
     if kwargs.get("condition") == "threshold":
         max_value = np.amax(image_data)
         for i in range(image_data.shape[0]):
             for j in range(image_data.shape[1]):
                 if image_data[i,j] <= 0.67 * max_value:
-                    mask[i,j] = 0.0
+                    mask[i,j] = 0
                 else:
-                    mask[i,j] = 1.0
+                    mask[i,j] = 1
     return(mask)
 
 def weighted_mean_2D(cutout,**kwargs):
