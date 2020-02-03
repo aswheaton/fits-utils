@@ -13,6 +13,7 @@ The program outputs reduced fits files.
 import math as m
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.colors import LogNorm
 from scipy.stats import mode
 from pathlib import Path
 from astropy.io import fits
@@ -120,6 +121,7 @@ def load_fits(**kwargs):
     # If not, cast them into arrays of zeros with matching dimensions and copy
     # the header data over to the newly created fits objects.
     else:
+        print("Imported image dimensions do not match! Framing with zeros.")
         framed_images = []
         for image in images:
             framed_image = np.zeros((max(x_sizes),max(y_sizes)))
@@ -250,29 +252,35 @@ def threshold_centroid(cutout, **kwargs):
 
 def create_mask(image_data, **kwargs):
     # Offset image so that all values are positive
-    image_data += np.abs(np.amin(image_data))
-    mask = np.empty(image_data.shape)
+    offset_data = image_data + np.abs(np.amin(image_data))
+    mask = np.empty(offset_data.shape)
     # Invalidate values based on the value of their neighbors (slow).
     if kwargs.get("condition") == "neighbors":
-        for i in range(image_data.shape[0]):
-            for j in range(image_data.shape[1]):
+        for i in range(offset_data.shape[0]):
+            for j in range(offset_data.shape[1]):
                 try:
-                    neighbors_sum = image_data[bc(i-1,j)]+image_data[bc(i+1,j)]+image_data[bc(i,j-1)]+image_data[bc(i,j+1)]
-                    if image_data[i,j] >= neighbors_sum:
-                        mask[i,j] = 0
-                    else:
+                    neighbors_sum = offset_data[i-1,j]+offset_data[i+1,j]+offset_data[i,j-1]+offset_data[i,j+1]
+                    if offset_data[i,j] >= neighbors_sum:
                         mask[i,j] = 1
+                    else:
+                        mask[i,j] = 0
                 except IndexError:
-                    mask[i,j] = 0
+                    mask[i,j] = 1
     # Invalidate values that fall below a certain threshold (fast).
     if kwargs.get("condition") == "threshold":
-        max_value = np.amax(image_data)
-        for i in range(image_data.shape[0]):
-            for j in range(image_data.shape[1]):
-                if image_data[i,j] <= 0.67 * max_value:
-                    mask[i,j] = 0
-                else:
+        max_value = np.amax(offset_data)
+        for i in range(offset_data.shape[0]):
+            for j in range(offset_data.shape[1]):
+                if offset_data[i,j] <= 0.67 * max_value:
                     mask[i,j] = 1
+                else:
+                    mask[i,j] = 0
+    if "border" in list(kwargs.keys()):
+        size = kwargs.get("border")
+        mask[:size,:] = 1
+        mask[-size:,:] = 1
+        mask[:,:size] = 1
+        mask[:,-size:] = 1
     return(mask)
 
 def weighted_mean_2D(cutout,**kwargs):
@@ -314,24 +322,28 @@ def hybrid_centroid(image_data, **kwargs):
         (x_avg,y_avg) (tuple): pixel coordinates of the centroid of the
             brightest star in the image array.
     """
+    plt.imshow(image_data, norm=LogNorm())
+    plt.show()
+    size = kwargs.get("size")
     # Attempt to invalidate pixels which may confuse the initial guess.
     if kwargs.get("mask") == True:
-        masked_data = np.ma.array(image_data, mask=create_mask(image_data, condition="neighbors"))
+        masked_data = np.ma.array(image_data, mask=create_mask(image_data, condition="neighbors", border=size))
         x_max, y_max = max_value_centroid(masked_data)
     # Get the maximum value of the cutout as an initial guess.
     else:
         x_max, y_max = max_value_centroid(image_data)
+    plt.imshow(image_data, norm=LogNorm())
+    plt.show()
     # Create a smaller cutout around the initial guess.
-    size = kwargs.get("size")
-    cutout = image_data[x_max-size:x_max+size,y_max-size:y_max+size]
+    cutout = np.array(image_data[x_max-size:x_max+size,y_max-size:y_max+size])
     # Get the mean weighted average of the smaller cutout.
     x_new, y_new = weighted_mean_2D(cutout, floor=True)
     # Map the centroid back to coordinates of original cutout.
     x_avg = x_max - size + x_new
     y_avg = y_max - size + y_new
-    # plt.imshow(cutout)
-    # plt.scatter(x_avg, y_avg, s=2, c='red', marker='o')
-    # plt.show()
+    plt.imshow(image_data, norm=LogNorm())
+    plt.scatter(x_avg, y_avg, s=2, c='red', marker='o')
+    plt.show()
     return((x_avg, y_avg))
 
 def old_align(image_stack, **kwargs):
@@ -535,15 +547,15 @@ def main_2():
     for target in ["m52"]:
         for band in ["u"]:
             unaligned_images = load_fits(path="sci/", target=target, band=band)
-            aligned_images = align(unaligned_images, centroid=hybrid_centroid, mask=False)
+            aligned_images = align(unaligned_images, centroid=hybrid_centroid, mask=True)
             stacked_image = stack(aligned_images)
             write_out_fits(stacked_image, "sta/" + target + "_" + band + "_stacked.fits")
 
 def main_3():
     unaligned_images = load_fits(path="sta/", target="m52", band="")
-    aligned_images = align(unaligned_images, centroid=hybrid_centroid, mask=False)
+    aligned_images = align(unaligned_images, centroid=hybrid_centroid, mask=True)
     rgb(aligned_images[0],aligned_images[1],aligned_images[1])
 
-main_1()
+# main_1()
 main_2()
-main_3()
+# main_3()
