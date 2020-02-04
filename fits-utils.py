@@ -519,7 +519,7 @@ def main_1():
         #: list of ndarray: Empty list for reduced images.
         science_list = {}
         for raw in raw_list:
-            print("Reducing " + str(len(science_list)) +  " of " + str(len(raw_list)) + " images.", end="\r"),
+            print("Reducing {} of {} images.".format(len(science_list), len(raw_list)), end="\r"),
             with fits.open(data_folder / raw["filename"]) as hdul:
                 #: ndarray: Dark subtracted image data
                 ds_data = np.subtract(hdul[0].data, master_dark_frame[raw["integration_time"]])
@@ -534,27 +534,27 @@ def main_1():
 
     print("Writing out dark frames..."),
     for key, value in master_dark_frame.items():
-        write_out_fits(value, "tmp/"+"dark_"+str(key))
+        write_out_fits(value, "tmp/dark_{}".format(key))
     print("Done!")
     print("Writing out flat frames..."),
     for key, value in master_flat_frame.items():
-        write_out_fits(value, "tmp/"+"flat_"+str(key))
+        write_out_fits(value, "tmp/flat_{}".format(key))
     print("Done!")
 
     counter = 0
     total = len(reduced_target_list)
     for key, value in reduced_target_list.items():
         counter += 1
-        print('Writing out ' + str(counter) +  ' of ' + str(total) + ' target images.', end='\r'),
-        write_out_fits(value, "sci/"+str(key))
+        print('Writing out {} of {} target images.'.format(counter, total), end='\r'),
+        write_out_fits(value, "sci/{}".format(key))
     print("\nDone!")
 
     counter = 0
     total = len(reduced_std_star_list)
     for key, value in reduced_std_star_list.items():
         counter += 1
-        print("Writing out " + str(counter) +  " of " + str(total) + " standard star images...", end="\r"),
-        write_out_fits(value, "sci/"+str(key))
+        print("Writing out {} of {} standard star images...".format(counter, total), end="\r"),
+        write_out_fits(value, "sci/{}".format(key))
     print("\nDone!")
 
 def main_2():
@@ -563,13 +563,13 @@ def main_2():
             unaligned_images = load_fits(path="sci/", target=target, band=band)
             aligned_images = align(unaligned_images, centroid=hybrid_centroid, mask=True)
             stacked_image = stack(aligned_images)
-            write_out_fits(stacked_image, "sta/" + target + "_" + band + "_stacked.fits")
+            write_out_fits(stacked_image, "sta/{}_{}_stacked.fits".format(target, band))
 
 def main_3():
     unaligned_images = load_fits(path="sta/", target="m52", band="")
     aligned_images = align(unaligned_images, centroid=hybrid_centroid, mask=True)
     rgb(aligned_images[0],aligned_images[1],aligned_images[1])
 
-# main_1()
-main_2()
+main_1()
+# main_2()
 # main_3()
