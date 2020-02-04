@@ -118,17 +118,24 @@ def load_fits(**kwargs):
             elif target_id in filename and band in filename:
                 int_time = filename.split("_")[2][:-1]
                 print(target_id, band, int_time, " matched ", filename)
-                hdul = fits.open(root + filename)
-                hdul[0].header["EXPTIME"] = int_time
-                hdul[0].header["TARGTID"] = target_id
-                hdul[0].header["FILENME"] = filename
-                images.append(hdul)
+                # hdul = fits.open(root + filename)
+                # hdul[0].header["EXPTIME"] = int_time
+                # hdul[0].header["TARGTID"] = target_id
+                # hdul[0].header["FILENME"] = filename
+                # images.append(hdul)
+                with fits.open(root+filename) as hdul:
+                    new_image = {}
+                    new_image["int_time"] = int_time
+                    new_image["target"] = target_id
+                    new_image["filename"] = filename
+                    new_image["data"] = hdul[0].data
+                    images.append(new_image)
 
     # Check that all the sizes of the loaded fits objects match.
     x_sizes, y_sizes = [], []
     for image in images:
-        x_sizes.append(image[0].data.shape[0])
-        y_sizes.append(image[0].data.shape[1])
+        x_sizes.append(image['data'].shape[0])
+        y_sizes.append(image['data'].shape[1])
     # If all fits object dimensions match, return the existing list of objects.
     if all(x==x_sizes[0] for x in x_sizes) and all(y==y_sizes[0] for y in y_sizes):
         return(images)
@@ -138,12 +145,13 @@ def load_fits(**kwargs):
         print("Imported image dimensions do not match! Framing with zeros.")
         framed_images = []
         for image in images:
-            framed_image = np.zeros((max(x_sizes),max(y_sizes)))
-            framed_image[:image[0].data.shape[0],:image[0].data.shape[1]] = image[0].data
-            hdul = fits.HDUList([fits.PrimaryHDU(framed_image)])
-            hdul[0].header["EXPTIME"] = image[0].header["EXPTIME"]
-            hdul[0].header["TARGTID"] = image[0].header["TARGTID"]
-            hdul[0].header["FILENME"] = image[0].header["FILENME"]
+            framed_image = {}
+            framed_image['data'] = np.zeros((max(x_sizes),max(y_sizes)))
+            framed_image['data'][:image['data'].shape[0],:image['data'].shape[1]] = image['data']
+            # hdul = fits.HDUList([fits.PrimaryHDU(framed_image)])
+            framed_image["int_time"] = image["int_time"]
+            framed_image["target"] = image["target"]
+            framed_image["filename"] = image["filename"]
             framed_images.append(hdul)
         return(framed_images)
 
@@ -441,11 +449,11 @@ def align(images, **kwargs):
     for image in images:
         counter += 1
         print("---Finding Centre {} of {}".format(counter, len(images)), end="\r")
-        centroid = hybrid_centroid(image[0].data, size=50, mask=mask)
+        centroid = hybrid_centroid(image['data'], size=50, mask=mask)
         x_centroids.append(centroid[0])
         y_centroids.append(centroid[1])
-        image[0].header['XCENT'] = centroid[0]
-        image[0].header['YCENT'] = centroid[1]
+        image['XCENT'] = centroid[0]
+        image['YCENT'] = centroid[1]
     print()
     max_pos = (max(x_centroids), max(y_centroids))
     min_pos = (min(x_centroids), min(y_centroids))
@@ -453,10 +461,10 @@ def align(images, **kwargs):
     # Create new stack of aligned images using the centroid in each frame.
     aligned_images = []
     for image in images:
-        aligned_image = np.zeros((image[0].data.shape[0]+max_dif[0], image[0].data.shape[1]+max_dif[1]))
-        centroid = (image[0].header['XCENT'], image[0].header['YCENT'])
+        aligned_image = np.zeros((image['data'].shape[0]+max_dif[0], image['data'].shape[1]+max_dif[1]))
+        centroid = (image['XCENT'], image['YCENT'])
         disp = (max_pos[0] - centroid[0], max_pos[1] - centroid[1])
-        aligned_image[disp[0]:disp[0]+image[0].data.shape[0],disp[1]:disp[1]+image[0].data.shape[1]] = image[0].data
+        aligned_image[disp[0]:disp[0]+image['data'].shape[0],disp[1]:disp[1]+image['data'].shape[1]] = image['data']
         aligned_images.append(aligned_image)
     print("---Alignment Complete---")
     return aligned_images
