@@ -264,22 +264,46 @@ def threshold_centroid(cutout, **kwargs):
     # plt.show()
     return((int(np.floor(x_avg)), int(np.floor(y_avg))))
 
+def custom_roll(array, axis=0):
+    """Getting sum of nearest neighbours for each value in an array.
+
+    For each value in an ndarray, sums the nearest neighbours around that
+    position for one axis. Pads array with zeroes, aligns array with dstack and
+    roll.
+
+    Args:
+        array (ndarray): Array to be passed over.
+        axis (int): Specific axis to be rolled over. Defaults to 0.
+
+    """
+    no = 3
+    array = array.T if axis==1 else array
+    padding = np.zeros((no-1, array.shape[1]))
+    array = np.concatenate([array, padding], axis=0)
+    neighbours = np.dstack([np.roll(array, i, axis=0) for i in range(no)])
+    array = neighbours.sum(2)[1:-1, :]
+    array = array.T if axis==1 else array
+    return array
+
 def create_mask(image_data, **kwargs):
     # Offset image so that all values are positive
     offset_data = image_data + np.abs(np.amin(image_data))
     mask = np.empty(offset_data.shape)
     # Invalidate values based on the value of their neighbors (slow).
+    # if kwargs.get("condition") == "neighbors":
+    #     for i in range(offset_data.shape[0]):
+    #         for j in range(offset_data.shape[1]):
+    #             try:
+    #                 neighbors_sum = offset_data[i-1,j]+offset_data[i+1,j]+offset_data[i,j-1]+offset_data[i,j+1]
+    #                 if offset_data[i,j] >= neighbors_sum:
+    #                     mask[i,j] = 1
+    #                 else:
+    #                     mask[i,j] = 0
+    #             except IndexError:
+    #                 mask[i,j] = 1
     if kwargs.get("condition") == "neighbors":
-        for i in range(offset_data.shape[0]):
-            for j in range(offset_data.shape[1]):
-                try:
-                    neighbors_sum = offset_data[i-1,j]+offset_data[i+1,j]+offset_data[i,j-1]+offset_data[i,j+1]
-                    if offset_data[i,j] >= neighbors_sum:
-                        mask[i,j] = 1
-                    else:
-                        mask[i,j] = 0
-                except IndexError:
-                    mask[i,j] = 1
+        sum_of_neighbours = custom_roll(custom_roll(offset_data), axis=1) - offset_data
+        mask = offset_data > sum_of_neighbours
     # Invalidate values that fall below a certain threshold (fast).
     if kwargs.get("condition") == "threshold":
         max_value = np.amax(offset_data)
@@ -336,8 +360,8 @@ def hybrid_centroid(image_data, **kwargs):
         (x_avg,y_avg) (tuple): pixel coordinates of the centroid of the
             brightest star in the image array.
     """
-    plt.imshow(image_data, norm=LogNorm())
-    plt.show()
+    # plt.imshow(image_data, norm=LogNorm())
+    # plt.show()
     size = kwargs.get("size")
     # Attempt to invalidate pixels which may confuse the initial guess.
     if kwargs.get("mask") == True:
@@ -346,8 +370,8 @@ def hybrid_centroid(image_data, **kwargs):
     # Get the maximum value of the cutout as an initial guess.
     else:
         x_max, y_max = max_value_centroid(image_data)
-    plt.imshow(image_data, norm=LogNorm())
-    plt.show()
+    # plt.imshow(image_data, norm=LogNorm())
+    # plt.show()
     # Create a smaller cutout around the initial guess.
     cutout = np.array(image_data[x_max-size:x_max+size,y_max-size:y_max+size])
     # Get the mean weighted average of the smaller cutout.
@@ -355,9 +379,9 @@ def hybrid_centroid(image_data, **kwargs):
     # Map the centroid back to coordinates of original cutout.
     x_avg = x_max - size + x_new
     y_avg = y_max - size + y_new
-    plt.imshow(image_data, norm=LogNorm())
-    plt.scatter(x_avg, y_avg, s=2, c='red', marker='o')
-    plt.show()
+    # plt.imshow(image_data, norm=LogNorm())
+    # plt.scatter(x_avg, y_avg, s=2, c='red', marker='o')
+    # plt.show()
     return((x_avg, y_avg))
 
 def old_align(image_stack, **kwargs):
@@ -412,9 +436,17 @@ def align(images, **kwargs):
     mask = kwargs.get("mask")
     # Find the centroid of the reference star in each image.
     x_centroids, y_centroids = [], []
+    print("---Beginning Alignment---")
+    counter = 0
     for image in images:
-        x_centroids.append(hybrid_centroid(image[0].data, size=50, mask=mask)[0])
-        y_centroids.append(hybrid_centroid(image[0].data, size=50, mask=mask)[1])
+        counter += 1
+        print("---Finding Centre {} of {}".format(counter, len(images)), end="\r")
+        centroid = hybrid_centroid(image[0].data, size=50, mask=mask)
+        x_centroids.append(centroid[0])
+        y_centroids.append(centroid[1])
+        image[0].header['XCENT'] = centroid[0]
+        image[0].header['YCENT'] = centroid[1]
+    print()
     max_pos = (max(x_centroids), max(y_centroids))
     min_pos = (min(x_centroids), min(y_centroids))
     max_dif = (max_pos[0]-min_pos[0], max_pos[1]-min_pos[1])
@@ -422,9 +454,11 @@ def align(images, **kwargs):
     aligned_images = []
     for image in images:
         aligned_image = np.zeros((image[0].data.shape[0]+max_dif[0], image[0].data.shape[1]+max_dif[1]))
-        disp = (max_pos[0] - hybrid_centroid(image[0].data, size=50, mask=mask)[0], max_pos[1] - hybrid_centroid(image[0].data, size=50, mask=mask)[1])
+        centroid = (image[0].header['XCENT'], image[0].header['YCENT'])
+        disp = (max_pos[0] - centroid[0], max_pos[1] - centroid[1])
         aligned_image[disp[0]:disp[0]+image[0].data.shape[0],disp[1]:disp[1]+image[0].data.shape[1]] = image[0].data
         aligned_images.append(aligned_image)
+    print("---Alignment Complete---")
     return aligned_images
 
 def stack(aligned_image_stack):
@@ -519,7 +553,7 @@ def main_1():
         #: list of ndarray: Empty list for reduced images.
         science_list = {}
         for raw in raw_list:
-            print("Reducing " + str(len(science_list)) +  " of " + str(len(raw_list)) + " images.", end="\r"),
+            print("Reducing {} of {} images.".format(len(science_list), len(raw_list)), end="\r"),
             with fits.open(data_folder / raw["filename"]) as hdul:
                 #: ndarray: Dark subtracted image data
                 ds_data = np.subtract(hdul[0].data, master_dark_frame[raw["integration_time"]])
@@ -534,36 +568,36 @@ def main_1():
 
     print("Writing out dark frames..."),
     for key, value in master_dark_frame.items():
-        write_out_fits(value, "tmp/"+"dark_"+str(key))
+        write_out_fits(value, "tmp/dark_{}".format(key))
     print("Done!")
     print("Writing out flat frames..."),
     for key, value in master_flat_frame.items():
-        write_out_fits(value, "tmp/"+"flat_"+str(key))
+        write_out_fits(value, "tmp/flat_{}".format(key))
     print("Done!")
 
     counter = 0
     total = len(reduced_target_list)
     for key, value in reduced_target_list.items():
         counter += 1
-        print('Writing out ' + str(counter) +  ' of ' + str(total) + ' target images.', end='\r'),
-        write_out_fits(value, "sci/"+str(key))
+        print('Writing out {} of {} target images.'.format(counter, total), end='\r'),
+        write_out_fits(value, "sci/{}".format(key))
     print("\nDone!")
 
     counter = 0
     total = len(reduced_std_star_list)
     for key, value in reduced_std_star_list.items():
         counter += 1
-        print("Writing out " + str(counter) +  " of " + str(total) + " standard star images...", end="\r"),
-        write_out_fits(value, "sci/"+str(key))
+        print("Writing out {} of {} standard star images...".format(counter, total), end="\r"),
+        write_out_fits(value, "sci/{}".format(key))
     print("\nDone!")
 
 def main_2():
     for target in ["m52"]:
-        for band in ["u"]:
+        for band in ["g", "r","u"]:
             unaligned_images = load_fits(path="sci/", target=target, band=band)
             aligned_images = align(unaligned_images, centroid=hybrid_centroid, mask=True)
             stacked_image = stack(aligned_images)
-            write_out_fits(stacked_image, "sta/" + target + "_" + band + "_stacked.fits")
+            write_out_fits(stacked_image, "sta/{}_{}_stacked.fits".format(target, band))
 
 def main_3():
     unaligned_images = load_fits(path="sta/", target="m52", band="")
