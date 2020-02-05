@@ -118,11 +118,6 @@ def load_fits(**kwargs):
             elif target_id in filename and band in filename:
                 int_time = filename.split("_")[2][:-1]
                 print(target_id, band, int_time, " matched ", filename)
-                # hdul = fits.open(root + filename)
-                # hdul[0].header["EXPTIME"] = int_time
-                # hdul[0].header["TARGTID"] = target_id
-                # hdul[0].header["FILENME"] = filename
-                # images.append(hdul)
                 with fits.open(root+filename) as hdul:
                     new_image = {}
                     new_image["int_time"] = int_time
@@ -130,7 +125,6 @@ def load_fits(**kwargs):
                     new_image["filename"] = filename
                     new_image["data"] = hdul[0].data
                     images.append(new_image)
-
     # Check that all the sizes of the loaded fits objects match.
     x_sizes, y_sizes = [], []
     for image in images:
@@ -208,9 +202,6 @@ def average_frame(filelist, **kwargs):
                     for file_object in filelist:
                         counts.append(file_object[i][j])
                     average[i][j] = median(counts)
-        return average
-    if kwargs.get("mode") == "pyraf":
-        # lol, don"t do this.
         return average
 
 def write_out_fits(image, filename):
@@ -297,18 +288,6 @@ def create_mask(image_data, **kwargs):
     # Offset image so that all values are positive
     offset_data = image_data + np.abs(np.amin(image_data))
     mask = np.empty(offset_data.shape)
-    # Invalidate values based on the value of their neighbors (slow).
-    # if kwargs.get("condition") == "neighbors":
-    #     for i in range(offset_data.shape[0]):
-    #         for j in range(offset_data.shape[1]):
-    #             try:
-    #                 neighbors_sum = offset_data[i-1,j]+offset_data[i+1,j]+offset_data[i,j-1]+offset_data[i,j+1]
-    #                 if offset_data[i,j] >= neighbors_sum:
-    #                     mask[i,j] = 1
-    #                 else:
-    #                     mask[i,j] = 0
-    #             except IndexError:
-    #                 mask[i,j] = 1
     if kwargs.get("condition") == "neighbors":
         sum_of_neighbours = custom_roll(custom_roll(offset_data), axis=1) - offset_data
         mask = offset_data > sum_of_neighbours
@@ -373,7 +352,8 @@ def hybrid_centroid(image_data, **kwargs):
     size = kwargs.get("size")
     # Attempt to invalidate pixels which may confuse the initial guess.
     if kwargs.get("mask") == True:
-        masked_data = np.ma.array(image_data, mask=create_mask(image_data, condition="neighbors", border=size))
+        mask_array = create_mask(image_data, condition="neighbors", border=size)
+        masked_data = np.ma.array(image_data, mask=mask_array)
         x_max, y_max = max_value_centroid(masked_data)
     # Get the maximum value of the cutout as an initial guess.
     else:
@@ -381,7 +361,10 @@ def hybrid_centroid(image_data, **kwargs):
     # plt.imshow(image_data, norm=LogNorm())
     # plt.show()
     # Create a smaller cutout around the initial guess.
-    cutout = np.array(image_data[x_max-size:x_max+size,y_max-size:y_max+size])
+    cutout = np.array(image_data[
+        x_max-size:x_max+size,
+        y_max-size:y_max+size
+    ])
     # Get the mean weighted average of the smaller cutout.
     x_new, y_new = weighted_mean_2D(cutout, floor=True)
     # Map the centroid back to coordinates of original cutout.
@@ -511,6 +494,7 @@ def reduce_raws(raw_list, master_dark_frame, master_flat_frame, dir):
         raw_list (list): Raw ndarray objects.
         master_dark_frame (dict): Dark ndarrays.
         master_flat_frame (dict): Flat ndarrays.
+        dir (directory): Location of .fits files to be reduced.
     Returns:
         science_list (list): Reduced ndarray objects.
     """

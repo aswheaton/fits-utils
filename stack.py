@@ -5,7 +5,7 @@ from fits_utils import *
 
 def main():
     for target in ["m52"]:
-        for band in ["g", "r","u"]:
+        for band in ["u"]:
             unaligned_images = load_fits(path="sci/", target=target, band=band)
             aligned_images = align(unaligned_images, centroid=hybrid_centroid, mask=True)
             stacked_image = stack(aligned_images)
