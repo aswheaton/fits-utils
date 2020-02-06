@@ -118,17 +118,18 @@ def load_fits(**kwargs):
             elif target_id in filename and band in filename:
                 int_time = filename.split("_")[2][:-1]
                 print(target_id, band, int_time, " matched ", filename)
-                hdul = fits.open(root + filename)
-                hdul[0].header["EXPTIME"] = int_time
-                hdul[0].header["TARGTID"] = target_id
-                hdul[0].header["FILENME"] = filename
-                images.append(hdul)
-
+                with fits.open(root+filename) as hdul:
+                    new_image = {}
+                    new_image["int_time"] = int_time
+                    new_image["target"] = target_id
+                    new_image["filename"] = filename
+                    new_image["data"] = hdul[0].data
+                    images.append(new_image)
     # Check that all the sizes of the loaded fits objects match.
     x_sizes, y_sizes = [], []
     for image in images:
-        x_sizes.append(image[0].data.shape[0])
-        y_sizes.append(image[0].data.shape[1])
+        x_sizes.append(image['data'].shape[0])
+        y_sizes.append(image['data'].shape[1])
     # If all fits object dimensions match, return the existing list of objects.
     if all(x==x_sizes[0] for x in x_sizes) and all(y==y_sizes[0] for y in y_sizes):
         return(images)
@@ -138,12 +139,13 @@ def load_fits(**kwargs):
         print("Imported image dimensions do not match! Framing with zeros.")
         framed_images = []
         for image in images:
-            framed_image = np.zeros((max(x_sizes),max(y_sizes)))
-            framed_image[:image[0].data.shape[0],:image[0].data.shape[1]] = image[0].data
-            hdul = fits.HDUList([fits.PrimaryHDU(framed_image)])
-            hdul[0].header["EXPTIME"] = image[0].header["EXPTIME"]
-            hdul[0].header["TARGTID"] = image[0].header["TARGTID"]
-            hdul[0].header["FILENME"] = image[0].header["FILENME"]
+            framed_image = {}
+            framed_image['data'] = np.zeros((max(x_sizes),max(y_sizes)))
+            framed_image['data'][:image['data'].shape[0],:image['data'].shape[1]] = image['data']
+            # hdul = fits.HDUList([fits.PrimaryHDU(framed_image)])
+            framed_image["int_time"] = image["int_time"]
+            framed_image["target"] = image["target"]
+            framed_image["filename"] = image["filename"]
             framed_images.append(hdul)
         return(framed_images)
 
@@ -200,9 +202,6 @@ def average_frame(filelist, **kwargs):
                     for file_object in filelist:
                         counts.append(file_object[i][j])
                     average[i][j] = median(counts)
-        return average
-    if kwargs.get("mode") == "pyraf":
-        # lol, don"t do this.
         return average
 
 def write_out_fits(image, filename):
@@ -289,18 +288,6 @@ def create_mask(image_data, **kwargs):
     # Offset image so that all values are positive
     offset_data = image_data + np.abs(np.amin(image_data))
     mask = np.empty(offset_data.shape)
-    # Invalidate values based on the value of their neighbors (slow).
-    # if kwargs.get("condition") == "neighbors":
-    #     for i in range(offset_data.shape[0]):
-    #         for j in range(offset_data.shape[1]):
-    #             try:
-    #                 neighbors_sum = offset_data[i-1,j]+offset_data[i+1,j]+offset_data[i,j-1]+offset_data[i,j+1]
-    #                 if offset_data[i,j] >= neighbors_sum:
-    #                     mask[i,j] = 1
-    #                 else:
-    #                     mask[i,j] = 0
-    #             except IndexError:
-    #                 mask[i,j] = 1
     if kwargs.get("condition") == "neighbors":
         sum_of_neighbours = custom_roll(custom_roll(offset_data), axis=1) - offset_data
         mask = offset_data > sum_of_neighbours
@@ -365,7 +352,8 @@ def hybrid_centroid(image_data, **kwargs):
     size = kwargs.get("size")
     # Attempt to invalidate pixels which may confuse the initial guess.
     if kwargs.get("mask") == True:
-        masked_data = np.ma.array(image_data, mask=create_mask(image_data, condition="neighbors", border=size))
+        mask_array = create_mask(image_data, condition="neighbors", border=size)
+        masked_data = np.ma.array(image_data, mask=mask_array)
         x_max, y_max = max_value_centroid(masked_data)
     # Get the maximum value of the cutout as an initial guess.
     else:
@@ -373,7 +361,10 @@ def hybrid_centroid(image_data, **kwargs):
     # plt.imshow(image_data, norm=LogNorm())
     # plt.show()
     # Create a smaller cutout around the initial guess.
-    cutout = np.array(image_data[x_max-size:x_max+size,y_max-size:y_max+size])
+    cutout = np.array(image_data[
+        x_max-size:x_max+size,
+        y_max-size:y_max+size
+    ])
     # Get the mean weighted average of the smaller cutout.
     x_new, y_new = weighted_mean_2D(cutout, floor=True)
     # Map the centroid back to coordinates of original cutout.
@@ -441,11 +432,11 @@ def align(images, **kwargs):
     for image in images:
         counter += 1
         print("---Finding Centre {} of {}".format(counter, len(images)), end="\r")
-        centroid = hybrid_centroid(image[0].data, size=50, mask=mask)
+        centroid = hybrid_centroid(image['data'], size=50, mask=mask)
         x_centroids.append(centroid[0])
         y_centroids.append(centroid[1])
-        image[0].header['XCENT'] = centroid[0]
-        image[0].header['YCENT'] = centroid[1]
+        image['XCENT'] = centroid[0]
+        image['YCENT'] = centroid[1]
     print()
     max_pos = (max(x_centroids), max(y_centroids))
     min_pos = (min(x_centroids), min(y_centroids))
@@ -453,10 +444,10 @@ def align(images, **kwargs):
     # Create new stack of aligned images using the centroid in each frame.
     aligned_images = []
     for image in images:
-        aligned_image = np.zeros((image[0].data.shape[0]+max_dif[0], image[0].data.shape[1]+max_dif[1]))
-        centroid = (image[0].header['XCENT'], image[0].header['YCENT'])
+        aligned_image = np.zeros((image['data'].shape[0]+max_dif[0], image['data'].shape[1]+max_dif[1]))
+        centroid = (image['XCENT'], image['YCENT'])
         disp = (max_pos[0] - centroid[0], max_pos[1] - centroid[1])
-        aligned_image[disp[0]:disp[0]+image[0].data.shape[0],disp[1]:disp[1]+image[0].data.shape[1]] = image[0].data
+        aligned_image[disp[0]:disp[0]+image['data'].shape[0],disp[1]:disp[1]+image['data'].shape[1]] = image['data']
         aligned_images.append(aligned_image)
     print("---Alignment Complete---")
     return aligned_images
@@ -494,116 +485,26 @@ def rgb(image_r, image_g, image_b):
     plt.imshow(rgb_image)
     plt.show()
 
-def main_1():
+def reduce_raws(raw_list, master_dark_frame, master_flat_frame, dir):
     """
-    Grabs sorted lists of files from get_lists function. Creates a list of
-    possible integration times from the dark files. Combines darks and flats
-    into master HDUList objects. These objects are stored in dictionaries that
-    have the integration times or bands as the keys.
+    Reduces raw images into science images. This function loops through a
+    list of raws. Each raw image is dark subtracted and then flat divided.
+
+    Args:
+        raw_list (list): Raw ndarray objects.
+        master_dark_frame (dict): Dark ndarrays.
+        master_flat_frame (dict): Flat ndarrays.
+        dir (directory): Location of .fits files to be reduced.
+    Returns:
+        science_list (list): Reduced ndarray objects.
     """
-    #: path obj: Various folder locations.
-    data_folder = Path("dat/")
-    science_folder = Path("sci/")
-    temp_folder = Path("tmp/")
-    #: list of dict: Lists contain dicts with filename (str) and other keys.
-    raw_dark_list, raw_flat_list, raw_target_list, raw_std_star_list = get_lists(data_folder)
-    #: list of str: Contains possible integration times. No duplicates.
-    possible_int_times = list(set(sub["integration_time"] for sub in raw_dark_list))
-    #: list of str: Possible bands. No duplicates.
-    possible_bands = list(set(sub["band"] for sub in raw_flat_list))
-    #: dict of ndarray: Contains master dark objects and integration_times.
-    print("Creating dark frames..."),
-    master_dark_frame = {}
-    for pos_int_time in possible_int_times:
-        #: list of ndarray: Contains data of dark files.
-        sorted_dark_list = []
-        for dark in raw_dark_list:
-            if dark["integration_time"] == pos_int_time:
-                with fits.open(data_folder / dark["filename"]) as hdul:
-                    #: ndarray: image data
-                    data = hdul[0].data
-                    sorted_dark_list.append(data)
-        master_dark_frame[pos_int_time] = np.floor(np.median(sorted_dark_list, 0))
-    print("Done!")
-    #: dict of ndarray: Master flat objects, bands, and integration times.
-    print("Creating flat frames..."),
-    master_flat_frame = {}
-    for pos_band in possible_bands:
-        #: list of ndarray: Contains flat objects.
-        sorted_flat_list = []
-        for flat in raw_flat_list:
-            if flat["band"] == pos_band:
-                with fits.open(data_folder / flat["filename"]) as hdul:
-                    #: ndarray: dark subtracted image data
-                    data = np.subtract(hdul[0].data, master_dark_frame[flat["integration_time"]])
-                    sorted_flat_list.append(data)
-        master_flat_frame[pos_band] = normalise_flat(np.floor(np.median(sorted_flat_list, 0)))
-    print("Done!")
-
-    def reduce_raws(raw_list):
-        """
-        Reduces raw images into science images. This function loops through a
-        list of raws. Each raw image is dark subtracted and then flat divided.
-
-        Args:
-            raw_list (list): Raw ndarray objects.
-        Returns:
-            science_list (list): Reduced ndarray objects.
-        """
-        #: list of ndarray: Empty list for reduced images.
-        science_list = {}
-        for raw in raw_list:
-            print("Reducing {} of {} images.".format(len(science_list), len(raw_list)), end="\r"),
-            with fits.open(data_folder / raw["filename"]) as hdul:
-                #: ndarray: Dark subtracted image data
-                ds_data = np.subtract(hdul[0].data, master_dark_frame[raw["integration_time"]])
-                science_list[raw["filename"]] = np.divide(ds_data, master_flat_frame[raw["band"]])
-        print("\nDone!")
-        return science_list
-
-    #: dictionary of ndarray objects: Reduced target image list.
-    reduced_target_list = reduce_raws(raw_target_list)
-    #: dictionary of ndarray objects: Reduced standard star image list.
-    reduced_std_star_list = reduce_raws(raw_std_star_list)
-
-    print("Writing out dark frames..."),
-    for key, value in master_dark_frame.items():
-        write_out_fits(value, "tmp/dark_{}".format(key))
-    print("Done!")
-    print("Writing out flat frames..."),
-    for key, value in master_flat_frame.items():
-        write_out_fits(value, "tmp/flat_{}".format(key))
-    print("Done!")
-
-    counter = 0
-    total = len(reduced_target_list)
-    for key, value in reduced_target_list.items():
-        counter += 1
-        print('Writing out {} of {} target images.'.format(counter, total), end='\r'),
-        write_out_fits(value, "sci/{}".format(key))
+    #: list of ndarray: Empty list for reduced images.
+    science_list = {}
+    for raw in raw_list:
+        print("Reducing {} of {} images.".format(len(science_list), len(raw_list)), end="\r"),
+        with fits.open(dir / raw["filename"]) as hdul:
+            #: ndarray: Dark subtracted image data
+            ds_data = np.subtract(hdul[0].data, master_dark_frame[raw["integration_time"]])
+            science_list[raw["filename"]] = np.divide(ds_data, master_flat_frame[raw["band"]])
     print("\nDone!")
-
-    counter = 0
-    total = len(reduced_std_star_list)
-    for key, value in reduced_std_star_list.items():
-        counter += 1
-        print("Writing out {} of {} standard star images...".format(counter, total), end="\r"),
-        write_out_fits(value, "sci/{}".format(key))
-    print("\nDone!")
-
-def main_2():
-    for target in ["m52"]:
-        for band in ["g", "r","u"]:
-            unaligned_images = load_fits(path="sci/", target=target, band=band)
-            aligned_images = align(unaligned_images, centroid=hybrid_centroid, mask=True)
-            stacked_image = stack(aligned_images)
-            write_out_fits(stacked_image, "sta/{}_{}_stacked.fits".format(target, band))
-
-def main_3():
-    unaligned_images = load_fits(path="sta/", target="m52", band="")
-    aligned_images = align(unaligned_images, centroid=hybrid_centroid, mask=True)
-    rgb(aligned_images[0],aligned_images[1],aligned_images[1])
-
-# main_1()
-main_2()
-# main_3()
+    return science_list
