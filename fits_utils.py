@@ -59,7 +59,6 @@ def get_lists(dir):
     flat_list = []
     target_list = []
     standard_star_list = []
-    # Why is this function defined inside another? ~Wheaton
     def add_to_list(array, filename, **kwargs):
         """
         Adds file data to lists of dictionaries.
@@ -128,8 +127,8 @@ def load_fits(**kwargs):
     # Check that all the sizes of the loaded fits objects match.
     x_sizes, y_sizes = [], []
     for image in images:
-        x_sizes.append(image['data'].shape[0])
-        y_sizes.append(image['data'].shape[1])
+        x_sizes.append(image["data"].shape[0])
+        y_sizes.append(image["data"].shape[1])
     # If all fits object dimensions match, return the existing list of objects.
     if all(x==x_sizes[0] for x in x_sizes) and all(y==y_sizes[0] for y in y_sizes):
         return(images)
@@ -140,13 +139,12 @@ def load_fits(**kwargs):
         framed_images = []
         for image in images:
             framed_image = {}
-            framed_image['data'] = np.zeros((max(x_sizes),max(y_sizes)))
-            framed_image['data'][:image['data'].shape[0],:image['data'].shape[1]] = image['data']
-            # hdul = fits.HDUList([fits.PrimaryHDU(framed_image)])
+            framed_image["data"] = np.zeros((max(x_sizes),max(y_sizes)))
+            framed_image["data"][:image["data"].shape[0],:image["data"].shape[1]] = image["data"]
             framed_image["int_time"] = image["int_time"]
             framed_image["target"] = image["target"]
             framed_image["filename"] = image["filename"]
-            framed_images.append(hdul)
+            framed_images.append(framed_image)
         return(framed_images)
 
 def median(list):
@@ -241,9 +239,6 @@ def max_value_centroid(image_data, **kwargs):
             image array.
     """
     x_max, y_max = np.where(image_data == np.amax(image_data))
-    # plt.imshow(cutout)
-    # plt.scatter(x_max, y_max, s=2, c='red', marker='o')
-    # plt.show()
     return((x_max[0], y_max[0]))
 
 def threshold_centroid(cutout, **kwargs):
@@ -258,9 +253,6 @@ def threshold_centroid(cutout, **kwargs):
     y_fwh = np.where(y_sum >= 0.67 * max(y_sum))
     x_avg = np.average(x_fwh[0], weights=x_sum[x_fwh])
     y_avg = np.average(y_fwh[0], weights=y_sum[y_fwh])
-    # plt.imshow(cutout)
-    # plt.scatter(x_avg, y_avg, s=2, c='red', marker='o')
-    # plt.show()
     return((int(np.floor(x_avg)), int(np.floor(y_avg))))
 
 def custom_roll(array, axis=0):
@@ -308,6 +300,11 @@ def create_mask(image_data, **kwargs):
         mask[:,-size:] = 1
     return(mask)
 
+def smooth(image_data, size, **kwargs):
+    from scipy.ndimage import gaussian_filter
+    smoothed_image = gaussian_filter(image_data, size)
+    return(smoothed_image)
+
 def weighted_mean_2D(cutout,**kwargs):
     """
     Recieves an argument of type ndarray and returns a tuple of the weighted
@@ -324,9 +321,6 @@ def weighted_mean_2D(cutout,**kwargs):
     y_sum = np.sum(cutout, axis=1)
     x_avg = np.average(range(x_sum.size), weights=x_sum)
     y_avg = np.average(range(y_sum.size), weights=y_sum)
-    # plt.imshow(cutout)
-    # plt.scatter(x_avg, y_avg, s=2, c='red', marker='o')
-    # plt.show()
     if kwargs.get("floor") == True:
         return((int(np.floor(x_avg)), int(np.floor(y_avg))))
     else:
@@ -347,32 +341,47 @@ def hybrid_centroid(image_data, **kwargs):
         (x_avg,y_avg) (tuple): pixel coordinates of the centroid of the
             brightest star in the image array.
     """
-    # plt.imshow(image_data, norm=LogNorm())
-    # plt.show()
     size = kwargs.get("size")
     # Attempt to invalidate pixels which may confuse the initial guess.
-    if kwargs.get("mask") == True:
+    if kwargs.get("filter") == "mask":
         mask_array = create_mask(image_data, condition="neighbors", border=size)
         masked_data = np.ma.array(image_data, mask=mask_array)
         x_max, y_max = max_value_centroid(masked_data)
+    # Attempt to smooth out pixels which may confuse the initial guess.
+    elif kwargs.get("filter") == "gaussian":
+        x_max, y_max = max_value_centroid(smooth(image_data, size))
+    # A hybrid method for aligning very faint images.
+    elif kwargs.get("filter") == "combined":
+        smoothed_data = smooth(image_data, size)
+        mask_array = create_mask(smoothed_data, condition="neighbors", border=100)
+        masked_data = np.ma.array(smoothed_data, mask=mask_array)
+        x_max, y_max = max_value_centroid(masked_data)
+        if x_max == 50:
+            # print("\nimage_data: ",image_data.shape)
+            # print("smooth_data: ", smoothed_data.shape)
+            # print("masked_data: ", masked_data.shape)
+            # print("initial guess: ", x_max, y_max)
+            plt.imshow(image_data, norm=LogNorm())
+            plt.show()
+            plt.imshow(smoothed_data, norm=LogNorm())
+            plt.show()
+            plt.imshow(mask_array, norm=LogNorm())
+            plt.show()
+            plt.imshow(masked_data, norm=LogNorm())
+            plt.show()
     # Get the maximum value of the cutout as an initial guess.
     else:
         x_max, y_max = max_value_centroid(image_data)
-    # plt.imshow(image_data, norm=LogNorm())
-    # plt.show()
     # Create a smaller cutout around the initial guess.
     cutout = np.array(image_data[
-        x_max-size:x_max+size,
-        y_max-size:y_max+size
-    ])
+                x_max-size if x_max > size else 0:x_max+size if x_max+size < image_data.shape[0] else image_data.shape[0],
+                y_max-size if y_max > size else 0:y_max+size if y_max+size < image_data.shape[1] else image_data.shape[1]
+                ])
     # Get the mean weighted average of the smaller cutout.
     x_new, y_new = weighted_mean_2D(cutout, floor=True)
     # Map the centroid back to coordinates of original cutout.
     x_avg = x_max - size + x_new
     y_avg = y_max - size + y_new
-    # plt.imshow(image_data, norm=LogNorm())
-    # plt.scatter(x_avg, y_avg, s=2, c='red', marker='o')
-    # plt.show()
     return((x_avg, y_avg))
 
 def old_align(image_stack, **kwargs):
@@ -417,14 +426,14 @@ def align(images, **kwargs):
     size, aligned, and with zero borders where the image has been shifted.
 
     Args:
-        images (list): Frames to be aligned.
+        images (list of dict): Frames to be aligned.
 
     Returns:
-        aligned_images (list): new frames that have been aligned and can be
-            stacked.
+        aligned_images (list of dict): new frames that have been aligned and can
+            be stacked.
     """
     # Boolean, whether or not to mask images for hot pixels on the detector.
-    mask = kwargs.get("mask")
+    filter = kwargs.get("filter")
     # Find the centroid of the reference star in each image.
     x_centroids, y_centroids = [], []
     print("---Beginning Alignment---")
@@ -432,11 +441,11 @@ def align(images, **kwargs):
     for image in images:
         counter += 1
         print("---Finding Centre {} of {}".format(counter, len(images)), end="\r")
-        centroid = hybrid_centroid(image['data'], size=50, mask=mask)
+        centroid = hybrid_centroid(image["data"], size=50, filter=filter)
         x_centroids.append(centroid[0])
         y_centroids.append(centroid[1])
-        image['XCENT'] = centroid[0]
-        image['YCENT'] = centroid[1]
+        image["XCENT"] = centroid[0]
+        image["YCENT"] = centroid[1]
     print()
     max_pos = (max(x_centroids), max(y_centroids))
     min_pos = (min(x_centroids), min(y_centroids))
@@ -444,10 +453,10 @@ def align(images, **kwargs):
     # Create new stack of aligned images using the centroid in each frame.
     aligned_images = []
     for image in images:
-        aligned_image = np.zeros((image['data'].shape[0]+max_dif[0], image['data'].shape[1]+max_dif[1]))
-        centroid = (image['XCENT'], image['YCENT'])
+        aligned_image = np.zeros((image["data"].shape[0]+max_dif[0], image["data"].shape[1]+max_dif[1]))
+        centroid = (image["XCENT"], image["YCENT"])
         disp = (max_pos[0] - centroid[0], max_pos[1] - centroid[1])
-        aligned_image[disp[0]:disp[0]+image['data'].shape[0],disp[1]:disp[1]+image['data'].shape[1]] = image['data']
+        aligned_image[disp[0]:disp[0]+image["data"].shape[0],disp[1]:disp[1]+image["data"].shape[1]] = image["data"]
         aligned_images.append(aligned_image)
     print("---Alignment Complete---")
     return aligned_images
@@ -455,7 +464,7 @@ def align(images, **kwargs):
 def stack(aligned_image_stack):
     """
     Receives a list of aligned images and returns their summation along the axis
-    of the list.#
+    of the list.
 
     Args:
         aligned_image_stack (list): aligned frames ready to be stacked.
