@@ -29,6 +29,9 @@ def read_catalog(filename):
 def create_catalog(catalog, filename):
     """Method for creating a new catalog file from an ndarray.
 
+    Takes an ndarray and writes it out to a new catalog file with a '.cat'
+    extension. Creates a header for this file with the indexes included.
+
     Args:
         catalog (ndarray): Merged catalog data.
         filename (str): Filename of the new catalog. Do not include the
@@ -64,7 +67,8 @@ def match_sources(catalog_1, catalog_2):
     """
     new_catalog = []
     for source in catalog_1:
-        index = np.where((np.isclose(catalog_2[:,1],source[1])) & (np.isclose(catalog_2[:,2],source[2])))[0]
+        index = np.where((np.isclose(catalog_2[:,1],source[1])) &
+                         (np.isclose(catalog_2[:,2],source[2])))[0]
         if np.size(index) != 0:
             new_catalog.append(np.append(source, catalog_2[index[0], 3:5]))
     new_catalog = np.vstack(new_catalog)
@@ -79,8 +83,9 @@ def main():
         #: Store the catalogs.
         catalog[band] = read_catalog('catalogs/{}.cat'.format(band))
     #: ndarray: New merged catalog for all bands.
-    new_catalog = match_sources(match_sources(catalog['g'], catalog['r']), catalog['u'])
+    new_catalog = match_sources(match_sources(catalog['g'], catalog['r']),
+                                catalog['u'])
     create_catalog(new_catalog, 'combined')
-    
+
 if __name__ == '__main__':
     main()
