@@ -211,7 +211,7 @@ def write_out_fits(image, filename):
         image (ndarray): reduced data to be written to fits file.
         filename (string): name (and location) of new fits file.
     """
-    hdul = fits.HDUList([fits.PrimaryHDU(image)])
+    hdul = fits.HDUList([fits.PrimaryHDU(image["data"])])
     hdul.writeto(filename, overwrite=True)
 
 def normalise_flat(flat_array):
@@ -453,35 +453,63 @@ def align(images, **kwargs):
     # Create new stack of aligned images using the centroid in each frame.
     aligned_images = []
     for image in images:
-        aligned_image = np.zeros((image["data"].shape[0]+max_dif[0], image["data"].shape[1]+max_dif[1]))
+        # Create new array containing aligned image data.
+        aligned_image_data = np.zeros((image["data"].shape[0]+max_dif[0], image["data"].shape[1]+max_dif[1]))
         centroid = (image["XCENT"], image["YCENT"])
         disp = (max_pos[0] - centroid[0], max_pos[1] - centroid[1])
-        aligned_image[disp[0]:disp[0]+image["data"].shape[0],disp[1]:disp[1]+image["data"].shape[1]] = image["data"]
+        aligned_image_data[disp[0]:disp[0]+image["data"].shape[0],disp[1]:disp[1]+image["data"].shape[1]] = image["data"]
+        # Create new image dictionary and copy over header data from image.
+        aligned_image = {}
+        aligned_image["int_time"] = image["int_time"]
+        aligned_image["target"] = image["target_id"]
+        aligned_image["filename"] = image["filename"]
+        aligned_image["data"] = aligned_image_data
+        # Add the new aligned image dictionary to a list to be returned.
         aligned_images.append(aligned_image)
     print("---Alignment Complete---")
-    return aligned_images
+    return(aligned_images)
 
-def stack(aligned_image_stack):
+def stack(aligned_image_stack, **kwargs):
     """
     Receives a list of aligned images and returns their summation along the axis
     of the list.
 
     Args:
-        aligned_image_stack (list): aligned frames ready to be stacked.
+        aligned_image_stack (list of dict): aligned frames ready to be stacked.
     Returns:
-        stacked_image (2darray): new combined single frame.
+        stacked_image (dict): new combined single frame.
     """
     # Check that the aligned images to be stacked have matching dimensions.
     for image in aligned_image_stack:
         if image.shape != aligned_image_stack[0].shape:
             print("Aligned image dimensions do not match!")
             break
+
     # If all dimensions match, initialise an empty array with those dimensions
     # into which aligned images are stacked.
-    stacked_image = np.zeros(aligned_image_stack[0].shape)
-    for image in aligned_image_stack:
-        stacked_image += image
-    return(stacked_image)
+    stacked_image_data = np.zeros(aligned_image_stack[0].shape)
+
+    if kwargs.get("correct_exposure") == True:
+        # Initialise array with second axis for storing exposure/pixel.
+        rows, cols = aligned_image_stack.shape
+        total_int_time = np.zeros(rows, cols)
+        for image in aligned_image_stack:
+            # Extract integration time from header and stack the image.
+            total_int_time += int(image["int_time"][:-1])
+            stacked_image_data += image["data"]
+        # Correct the image data for exposure time of each pixel.
+        exposure_corrected_data = np.floor(stacked_image / total_int_time)
+        # Create new dict containing exposure corrected stack. Note the int_time
+        # is now an array of exposure times for each pixel!
+        exposure_corrected_stack = {}
+        exposure_corrected_stack["data"] = exposure_corrected_data
+        return(exposure_corrected_stack)
+    else:
+        for image in aligned_image_stack:
+            stacked_image_data += image["data"]
+        stacked_image = {}
+        stacked_image["data"] = stacked_image_data
+        return(stacked_image)
 
 def rgb(image_r, image_g, image_b):
     """
