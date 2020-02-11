@@ -461,7 +461,7 @@ def align(images, **kwargs):
         # Create new image dictionary and copy over header data from image.
         aligned_image = {}
         aligned_image["int_time"] = image["int_time"]
-        aligned_image["target"] = image["target_id"]
+        aligned_image["target"] = image["target"]
         aligned_image["filename"] = image["filename"]
         aligned_image["data"] = aligned_image_data
         # Add the new aligned image dictionary to a list to be returned.
@@ -481,24 +481,24 @@ def stack(aligned_image_stack, **kwargs):
     """
     # Check that the aligned images to be stacked have matching dimensions.
     for image in aligned_image_stack:
-        if image.shape != aligned_image_stack[0].shape:
+        if image["data"].shape != aligned_image_stack[0]["data"].shape:
             print("Aligned image dimensions do not match!")
             break
 
     # If all dimensions match, initialise an empty array with those dimensions
     # into which aligned images are stacked.
-    stacked_image_data = np.zeros(aligned_image_stack[0].shape)
+    stacked_image_data = np.zeros(aligned_image_stack[0]["data"].shape)
 
     if kwargs.get("correct_exposure") == True:
         # Initialise array with second axis for storing exposure/pixel.
-        rows, cols = aligned_image_stack.shape
-        total_int_time = np.zeros(rows, cols)
+        rows, cols = aligned_image_stack[0]["data"].shape
+        total_int_time = np.zeros((rows, cols))
         for image in aligned_image_stack:
             # Extract integration time from header and stack the image.
             total_int_time += int(image["int_time"][:-1])
             stacked_image_data += image["data"]
         # Correct the image data for exposure time of each pixel.
-        exposure_corrected_data = np.floor(stacked_image / total_int_time)
+        exposure_corrected_data = np.floor(stacked_image_data / total_int_time)
         # Create new dict containing exposure corrected stack. Note the int_time
         # is now an array of exposure times for each pixel!
         exposure_corrected_stack = {}
