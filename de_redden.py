@@ -1,3 +1,5 @@
+from fits_utils import *
+
 def main():
     m= 0.9199548
     ms=(m**2)+1
