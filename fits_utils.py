@@ -491,3 +491,12 @@ def reduce_raws(raw_list, master_dark_frame, master_flat_frame, dir):
             science_list[raw["filename"]] = np.divide(ds_data, master_flat_frame[raw["band"]])
     print("\nDone!")
     return science_list
+
+def get_mag(flux, flux_err, zpoint):
+    mag = zpoint - (2.5*np.log(flux)/np.log(10))
+    mag_err = (-2.5/np.log(10))*(flux_err/flux)
+    return mag, mag_err
+
+def minimiser(lambda_fit):
+    best_lambda = float(lambda_fit[np.where(lambda_fit[:,1]==np.amin(lambda_fit[:,1]))[0],0])
+    return(best_lambda)
