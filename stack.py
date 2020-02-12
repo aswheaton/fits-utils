@@ -1,7 +1,7 @@
 """Script to align and stack images.
 
 """
-import fits_utils as fu
+from fits_utils import *
 
 def main():
     for target in ["m52"]:
