@@ -157,21 +157,6 @@ def load_fits(**kwargs):
             framed_images.append(framed_image)
         return(framed_images)
 
-def median(list):
-    """
-    DEPRECATED
-    Returns the median value of a given list. Used for averaging frames without
-    the influence of outlier count values.
-    """
-    list.sort()
-    if len(list)%2 == 0:
-        index = int(m.floor(len(list)/2)) - 1
-        median = int(m.floor((list[index] + list[index+1])/2))
-    if len(list)%2 == 1:
-        index = int(m.ceil(len(list)/2))
-        median = list[index]
-    return(median)
-
 def average_frame(filelist, **kwargs):
     """
     Recieves a list of .fits images and returns either their mean or median as
@@ -250,20 +235,6 @@ def max_value_centroid(image_data, **kwargs):
     """
     x_max, y_max = np.where(image_data == np.amax(image_data))
     return((x_max[0], y_max[0]))
-
-def threshold_centroid(cutout, **kwargs):
-    """
-    DEPRECATED
-    Returns the weighted mean centroid of values above 2/3 the maximum value in
-    a cutout of an array.
-    """
-    x_sum = np.sum(cutout, axis=0)
-    y_sum = np.sum(cutout, axis=1)
-    x_fwh = np.where(x_sum >= 0.67 * max(x_sum))
-    y_fwh = np.where(y_sum >= 0.67 * max(y_sum))
-    x_avg = np.average(x_fwh[0], weights=x_sum[x_fwh])
-    y_avg = np.average(y_fwh[0], weights=y_sum[y_fwh])
-    return((int(np.floor(x_avg)), int(np.floor(y_avg))))
 
 def custom_roll(array, axis=0):
     """Getting sum of nearest neighbours for each value in an array.
@@ -393,41 +364,6 @@ def hybrid_centroid(image_data, **kwargs):
     x_avg = x_max - size + x_new
     y_avg = y_max - size + y_new
     return((x_avg, y_avg))
-
-def old_align(image_stack, **kwargs):
-    """
-    DEPRECATED
-    Recieves a list of image arrays and some "cutout" range containing a common
-    object to use for alignment of the image stack. Returns a list of image
-    arrays of different size, aligned, and with zero borders where the image has
-    been shifted.
-
-    Args:
-        image_stack (list): frames to be aligned.
-        centroid (func_handle): function handle for arbitrary centroiding
-            function which returns a position tuple.
-    Returns:
-        aligned_image_stack (list): new frames that have been aligned and can be
-            stacked.
-    """
-    centroid = kwargs.get("centroid")
-    # Get lists of all the x and y centroids.
-    x_centroids, y_centroids = [], []
-    for image in image_stack:
-        x_centroids.append(centroid(image[0].data, size=50)[0])
-        y_centroids.append(centroid(image[0].data, size=50)[1])
-    x_ref, y_ref = max(x_centroids), max(y_centroids)
-    x_max_offset = max(x_centroids) - min(x_centroids)
-    y_max_offset = max(y_centroids) - min(y_centroids)
-    # Create new list of image arrays with offset.
-    aligned_image_stack = []
-    for image in image_stack:
-        aligned_image = np.zeros((image[0].data.shape[0]+x_max_offset, image[0].data.shape[1]+y_max_offset))
-        x_image_offset = x_ref - centroid(image[0].data, size=50)[0]
-        y_image_offset = y_ref - centroid(image[0].data, size=50)[1]
-        aligned_image[x_image_offset:x_image_offset+image[0].data.shape[0],y_image_offset:y_image_offset+image[0].data.shape[1]] = image[0].data
-        aligned_image_stack.append(aligned_image)
-    return(aligned_image_stack)
 
 def align(images, **kwargs):
     """
