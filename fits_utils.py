@@ -24,15 +24,15 @@ By convention, imported:
 import fits-utils as fu
 """
 
-import math as m
 import numpy as np
 import matplotlib.pyplot as plt
+import configparser
+
 from matplotlib.colors import LogNorm
 from scipy.stats import mode
 from pathlib import Path
 from astropy.io import fits
 from os import walk
-import configparser
 
 def gen_config():
     config = configparser.ConfigParser()
