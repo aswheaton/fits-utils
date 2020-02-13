@@ -237,7 +237,8 @@ def max_value_centroid(image_data, **kwargs):
     return((x_max[0], y_max[0]))
 
 def custom_roll(array, axis=0):
-    """Getting sum of nearest neighbours for each value in an array.
+    """
+    Getting sum of nearest neighbours for each value in an array.
 
     For each value in an ndarray, sums the nearest neighbours around that
     position for one axis. Pads array with zeroes, aligns array with dstack and
@@ -246,7 +247,6 @@ def custom_roll(array, axis=0):
     Args:
         array (ndarray): Array to be passed over.
         axis (int): Specific axis to be rolled over. Defaults to 0.
-
     """
     no = 3
     array = array.T if axis==1 else array
@@ -281,9 +281,10 @@ def create_mask(image_data, **kwargs):
         mask[:,-size:] = 1
     return(mask)
 
-def smooth(image_data, size, **kwargs):
+def smooth(image_data, **kwargs):
     from scipy.ndimage import gaussian_filter
-    smoothed_image = gaussian_filter(image_data, size)
+    sigma = kwargs.get("sigma")
+    smoothed_image = gaussian_filter(image_data, sigma)
     return(smoothed_image)
 
 def weighted_mean_2D(cutout,**kwargs):
@@ -330,26 +331,13 @@ def hybrid_centroid(image_data, **kwargs):
         x_max, y_max = max_value_centroid(masked_data)
     # Attempt to smooth out pixels which may confuse the initial guess.
     elif kwargs.get("filter") == "gaussian":
-        x_max, y_max = max_value_centroid(smooth(image_data, size))
+        x_max, y_max = max_value_centroid(smooth(image_data, sigma=0.25*size))
     # A hybrid method for aligning very faint images.
     elif kwargs.get("filter") == "combined":
-        smoothed_data = smooth(image_data, size)
+        smoothed_data = smooth(image_data, sigma=0.25*size)
         mask_array = create_mask(smoothed_data, condition="neighbors", border=100)
         masked_data = np.ma.array(smoothed_data, mask=mask_array)
         x_max, y_max = max_value_centroid(masked_data)
-        if x_max == 50:
-            # print("\nimage_data: ",image_data.shape)
-            # print("smooth_data: ", smoothed_data.shape)
-            # print("masked_data: ", masked_data.shape)
-            # print("initial guess: ", x_max, y_max)
-            plt.imshow(image_data, norm=LogNorm())
-            plt.show()
-            plt.imshow(smoothed_data, norm=LogNorm())
-            plt.show()
-            plt.imshow(mask_array, norm=LogNorm())
-            plt.show()
-            plt.imshow(masked_data, norm=LogNorm())
-            plt.show()
     # Get the maximum value of the cutout as an initial guess.
     else:
         x_max, y_max = max_value_centroid(image_data)
@@ -465,8 +453,13 @@ def rgb(image_r, image_g, image_b):
     """
     from astropy.visualization import make_lupton_rgb
     rgb_image = make_lupton_rgb(image_r, image_g, image_b, Q=10, stretch=1000.)
-    plt.imshow(rgb_image)
+    plt.imshow(rgb_image, norm=LogNorm())
     plt.show()
+    plt.axis("off")
+    fig = plt.imshow(rgb_image, norm=LogNorm())
+    fig.axes.get_xaxis().set_visible(False)
+    fig.axes.get_yaxis().set_visible(False)
+    plt.savefig("false_colour.jpeg", bbox_inches="tight", pad_inches=0, dpi=1000)
 
 def reduce_raws(raw_list, master_dark_frame, master_flat_frame, dir):
     """
