@@ -48,7 +48,7 @@ def create_catalog(catalog, filename):
                             '[6] : FLUXERR_APER_R',
                             '[7] : FLUX_APER_U',
                             '[8] : FLUXERR_APER_U'])
-    np.savetxt('catalogs/{}.cat'.format(filename), catalog, header=header_txt)
+    np.savetxt('cat/{}.cat'.format(filename), catalog, header=header_txt)
 
 def match_sources(catalog_1, catalog_2):
     """Function for matching sources in two catalogs.
@@ -81,7 +81,7 @@ def main():
     catalog = {}
     for band in bands:
         #: Store the catalogs.
-        catalog[band] = read_catalog('catalogs/{}.cat'.format(band))
+        catalog[band] = read_catalog('cat/{}.cat'.format(band))
     #: ndarray: New merged catalog for all bands.
     new_catalog = match_sources(match_sources(catalog['g'], catalog['r']),
                                 catalog['u'])
