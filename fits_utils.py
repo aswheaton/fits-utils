@@ -491,3 +491,31 @@ def reduce_raws(raw_list, master_dark_frame, master_flat_frame, dir):
             science_list[raw["filename"]] = np.divide(ds_data, master_flat_frame[raw["band"]])
     print("\nDone!")
     return science_list
+
+def plot_HR(x, y, x_label, y_label, target):
+    """Method for plotting a HR diagram.
+
+    Uses matplotlib to create a HR diagram of the magnitudes/colors. The plot is
+    a simple scatter plot. Saves the plot to the plots output folder.
+
+    Args:
+        x (ndarray): x-values.
+        y (ndarray): y-values.
+        x_label (str): Label for the x axis. (Magnitude band, or color). Also
+            used in filename.
+        y_label (str): Label for the y axis. (magnitude band, or color). Also
+            used in filename.
+        target (str): Name of the target. Used for title and filename.
+
+    """
+    #: fig, ax objects: New figure and axis created by matplotlib.
+    fig, ax = plt.subplots()
+    ax.plot(x, y, 'o', c='black', marksersize=0.75)
+    ax.set(
+           xlabel=x_label,
+           y_label=y_label,
+           title='HR Diagram \n {}'.format(target)
+    )
+    plt.draw()
+    plt.show()
+    fig.savefig('plots/{}_{}vs{}.png'.format(target, x_label, y_label))
