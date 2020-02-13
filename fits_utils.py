@@ -492,11 +492,20 @@ def reduce_raws(raw_list, master_dark_frame, master_flat_frame, dir):
     print("\nDone!")
     return science_list
 
-def plot_HR(x, y, x_label, y_label, target):
-    """Method for plotting a HR diagram.
+def get_mag(flux, flux_err, zpoint):
+    mag = zpoint - (2.5*np.log(flux)/np.log(10))
+    mag_err = (-2.5/np.log(10))*(flux_err/flux)
+    return mag, mag_err
 
-    Uses matplotlib to create a HR diagram of the magnitudes/colors. The plot is
-    a simple scatter plot. Saves the plot to the plots output folder.
+def minimiser(lambda_fit):
+    best_lambda = float(lambda_fit[np.where(lambda_fit[:,1]==np.amin(lambda_fit[:,1]))[0],0])
+    return(best_lambda)
+
+def plot_HR(x, y, x_label, y_label, target):
+    """
+    Method for plotting a HR diagram. Uses matplotlib to create a HR diagram
+    of the magnitudes/colors. The plot is a simple scatter plot. Saves the
+    plot to the plots output folder.
 
     Args:
         x (ndarray): x-values.
@@ -506,7 +515,6 @@ def plot_HR(x, y, x_label, y_label, target):
         y_label (str): Label for the y axis. (magnitude band, or color). Also
             used in filename.
         target (str): Name of the target. Used for title and filename.
-
     """
     #: fig, ax objects: New figure and axis created by matplotlib.
     fig, ax = plt.subplots()
@@ -515,7 +523,7 @@ def plot_HR(x, y, x_label, y_label, target):
            xlabel=x_label,
            y_label=y_label,
            title='HR Diagram \n {}'.format(target)
-    )
+          )
     plt.draw()
     plt.show()
     fig.savefig('plots/{}_{}vs{}.png'.format(target, x_label, y_label))
