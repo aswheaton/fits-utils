@@ -24,15 +24,25 @@ By convention, imported:
 import fits-utils as fu
 """
 
-import math as m
 import numpy as np
 import matplotlib.pyplot as plt
+import configparser
+
 from matplotlib.colors import LogNorm
 from scipy.stats import mode
 from pathlib import Path
 from astropy.io import fits
 from os import walk
-import configparser
+
+def gen_config():
+    config = configparser.ConfigParser()
+    config['TELESCOPE'] = {'Size': '15'}
+    config['DATA SETTINGS'] = {'Standard Star A': 'bd62',
+                               'Standard Star B': 'bd25',
+                               'Target ID': 'm52',
+                               'Bands': 'g, r, u'}
+    with open('config.ini', 'w') as configfile:
+        config.write(configfile)
 
 def get_lists(dir):
     """
@@ -147,21 +157,6 @@ def load_fits(**kwargs):
             framed_images.append(framed_image)
         return(framed_images)
 
-def median(list):
-    """
-    DEPRECATED
-    Returns the median value of a given list. Used for averaging frames without
-    the influence of outlier count values.
-    """
-    list.sort()
-    if len(list)%2 == 0:
-        index = int(m.floor(len(list)/2)) - 1
-        median = int(m.floor((list[index] + list[index+1])/2))
-    if len(list)%2 == 1:
-        index = int(m.ceil(len(list)/2))
-        median = list[index]
-    return(median)
-
 def average_frame(filelist, **kwargs):
     """
     Recieves a list of .fits images and returns either their mean or median as
@@ -211,7 +206,7 @@ def write_out_fits(image, filename):
         image (ndarray): reduced data to be written to fits file.
         filename (string): name (and location) of new fits file.
     """
-    hdul = fits.HDUList([fits.PrimaryHDU(image)])
+    hdul = fits.HDUList([fits.PrimaryHDU(image["data"])])
     hdul.writeto(filename, overwrite=True)
 
 def normalise_flat(flat_array):
@@ -240,20 +235,6 @@ def max_value_centroid(image_data, **kwargs):
     """
     x_max, y_max = np.where(image_data == np.amax(image_data))
     return((x_max[0], y_max[0]))
-
-def threshold_centroid(cutout, **kwargs):
-    """
-    DEPRECATED
-    Returns the weighted mean centroid of values above 2/3 the maximum value in
-    a cutout of an array.
-    """
-    x_sum = np.sum(cutout, axis=0)
-    y_sum = np.sum(cutout, axis=1)
-    x_fwh = np.where(x_sum >= 0.67 * max(x_sum))
-    y_fwh = np.where(y_sum >= 0.67 * max(y_sum))
-    x_avg = np.average(x_fwh[0], weights=x_sum[x_fwh])
-    y_avg = np.average(y_fwh[0], weights=y_sum[y_fwh])
-    return((int(np.floor(x_avg)), int(np.floor(y_avg))))
 
 def custom_roll(array, axis=0):
     """Getting sum of nearest neighbours for each value in an array.
@@ -384,41 +365,6 @@ def hybrid_centroid(image_data, **kwargs):
     y_avg = y_max - size + y_new
     return((x_avg, y_avg))
 
-def old_align(image_stack, **kwargs):
-    """
-    DEPRECATED
-    Recieves a list of image arrays and some "cutout" range containing a common
-    object to use for alignment of the image stack. Returns a list of image
-    arrays of different size, aligned, and with zero borders where the image has
-    been shifted.
-
-    Args:
-        image_stack (list): frames to be aligned.
-        centroid (func_handle): function handle for arbitrary centroiding
-            function which returns a position tuple.
-    Returns:
-        aligned_image_stack (list): new frames that have been aligned and can be
-            stacked.
-    """
-    centroid = kwargs.get("centroid")
-    # Get lists of all the x and y centroids.
-    x_centroids, y_centroids = [], []
-    for image in image_stack:
-        x_centroids.append(centroid(image[0].data, size=50)[0])
-        y_centroids.append(centroid(image[0].data, size=50)[1])
-    x_ref, y_ref = max(x_centroids), max(y_centroids)
-    x_max_offset = max(x_centroids) - min(x_centroids)
-    y_max_offset = max(y_centroids) - min(y_centroids)
-    # Create new list of image arrays with offset.
-    aligned_image_stack = []
-    for image in image_stack:
-        aligned_image = np.zeros((image[0].data.shape[0]+x_max_offset, image[0].data.shape[1]+y_max_offset))
-        x_image_offset = x_ref - centroid(image[0].data, size=50)[0]
-        y_image_offset = y_ref - centroid(image[0].data, size=50)[1]
-        aligned_image[x_image_offset:x_image_offset+image[0].data.shape[0],y_image_offset:y_image_offset+image[0].data.shape[1]] = image[0].data
-        aligned_image_stack.append(aligned_image)
-    return(aligned_image_stack)
-
 def align(images, **kwargs):
     """
     Recieves a list of image arrays containing a common object to use for
@@ -453,35 +399,63 @@ def align(images, **kwargs):
     # Create new stack of aligned images using the centroid in each frame.
     aligned_images = []
     for image in images:
-        aligned_image = np.zeros((image["data"].shape[0]+max_dif[0], image["data"].shape[1]+max_dif[1]))
+        # Create new array containing aligned image data.
+        aligned_image_data = np.zeros((image["data"].shape[0]+max_dif[0], image["data"].shape[1]+max_dif[1]))
         centroid = (image["XCENT"], image["YCENT"])
         disp = (max_pos[0] - centroid[0], max_pos[1] - centroid[1])
-        aligned_image[disp[0]:disp[0]+image["data"].shape[0],disp[1]:disp[1]+image["data"].shape[1]] = image["data"]
+        aligned_image_data[disp[0]:disp[0]+image["data"].shape[0],disp[1]:disp[1]+image["data"].shape[1]] = image["data"]
+        # Create new image dictionary and copy over header data from image.
+        aligned_image = {}
+        aligned_image["int_time"] = image["int_time"]
+        aligned_image["target"] = image["target"]
+        aligned_image["filename"] = image["filename"]
+        aligned_image["data"] = aligned_image_data
+        # Add the new aligned image dictionary to a list to be returned.
         aligned_images.append(aligned_image)
     print("---Alignment Complete---")
-    return aligned_images
+    return(aligned_images)
 
-def stack(aligned_image_stack):
+def stack(aligned_image_stack, **kwargs):
     """
     Receives a list of aligned images and returns their summation along the axis
     of the list.
 
     Args:
-        aligned_image_stack (list): aligned frames ready to be stacked.
+        aligned_image_stack (list of dict): aligned frames ready to be stacked.
     Returns:
-        stacked_image (2darray): new combined single frame.
+        stacked_image (dict): new combined single frame.
     """
     # Check that the aligned images to be stacked have matching dimensions.
     for image in aligned_image_stack:
-        if image.shape != aligned_image_stack[0].shape:
+        if image["data"].shape != aligned_image_stack[0]["data"].shape:
             print("Aligned image dimensions do not match!")
             break
+
     # If all dimensions match, initialise an empty array with those dimensions
     # into which aligned images are stacked.
-    stacked_image = np.zeros(aligned_image_stack[0].shape)
-    for image in aligned_image_stack:
-        stacked_image += image
-    return(stacked_image)
+    stacked_image_data = np.zeros(aligned_image_stack[0]["data"].shape)
+
+    if kwargs.get("correct_exposure") == True:
+        # Initialise array with second axis for storing exposure/pixel.
+        rows, cols = aligned_image_stack[0]["data"].shape
+        total_int_time = np.zeros((rows, cols))
+        for image in aligned_image_stack:
+            # Extract integration time from header and stack the image.
+            total_int_time += int(image["int_time"][:-1])
+            stacked_image_data += image["data"]
+        # Correct the image data for exposure time of each pixel.
+        exposure_corrected_data = np.floor(stacked_image_data / total_int_time)
+        # Create new dict containing exposure corrected stack. Note the int_time
+        # is now an array of exposure times for each pixel!
+        exposure_corrected_stack = {}
+        exposure_corrected_stack["data"] = exposure_corrected_data
+        return(exposure_corrected_stack)
+    else:
+        for image in aligned_image_stack:
+            stacked_image_data += image["data"]
+        stacked_image = {}
+        stacked_image["data"] = stacked_image_data
+        return(stacked_image)
 
 def rgb(image_r, image_g, image_b):
     """

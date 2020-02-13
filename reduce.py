@@ -10,6 +10,8 @@ def main():
     into master HDUList objects. These objects are stored in dictionaries that
     have the integration times or bands as the keys.
     """
+    # Generate the config file.
+    gen_config()
     #: path obj: Various folder locations.
     data_folder = Path("dat/")
     science_folder = Path("sci/")
