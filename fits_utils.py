@@ -493,6 +493,12 @@ def reduce_raws(raw_list, master_dark_frame, master_flat_frame, dir):
     return science_list
 
 def get_mag(flux, flux_err, zpoint):
+    """Method for correcting counts for the zero point.
+
+    Recieves the flux of an object and corrects it using the zero point of that
+    specific band.
+
+    """
     mag = zpoint - (2.5*np.log(flux)/np.log(10))
     mag_err = (-2.5/np.log(10))*(flux_err/flux)
     return mag, mag_err
@@ -501,29 +507,33 @@ def minimiser(lambda_fit):
     best_lambda = float(lambda_fit[np.where(lambda_fit[:,1]==np.amin(lambda_fit[:,1]))[0],0])
     return(best_lambda)
 
-def plot_HR(x, y, x_label, y_label, target):
+def plot_diagram(plts, **kwargs):
     """
     Method for plotting a HR diagram. Uses matplotlib to create a HR diagram
     of the magnitudes/colors. The plot is a simple scatter plot. Saves the
     plot to the plots output folder.
 
     Args:
-        x (ndarray): x-values.
-        y (ndarray): y-values.
-        x_label (str): Label for the x axis. (Magnitude band, or color). Also
-            used in filename.
-        y_label (str): Label for the y axis. (magnitude band, or color). Also
-            used in filename.
-        target (str): Name of the target. Used for title and filename.
+        plts (dictionary): Multiple plots to be put on the same axis. Key should
+            be the label for the plot. Each tuple should contain: (x values, y
+            values, and the marker type for the plot.)
     """
     #: fig, ax objects: New figure and axis created by matplotlib.
     fig, ax = plt.subplots()
-    ax.plot(x, y, 'o', c='black', marksersize=0.75)
+    plt_names = []
+    for plt_name, plot in plts.items():
+        ax.plot(plot[0], plot[1], plot[2], markersize=0.75)
+        plt_names.append(plt_name)
     ax.set(
-           xlabel=x_label,
-           y_label=y_label,
-           title='HR Diagram \n {}'.format(target)
+           xlabel=kwargs.get('x_label'),
+           ylabel=kwargs.get('y_label'),
+           title=kwargs.get('sup_title'),
+           #: Invert the y axis for the plot.
+           ylim=ax.get_ylim()[::-1]
           )
+    if kwargs.get('legend')==True:
+        ax.legend(plt_names)
     plt.draw()
     plt.show()
-    fig.savefig('plots/{}_{}vs{}.png'.format(target, x_label, y_label))
+    if kwargs.get('filename')!=None:
+        fig.savefig('plots/{}.png'.format(kwargs.get('filename')))
