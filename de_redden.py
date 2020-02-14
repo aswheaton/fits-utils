@@ -5,9 +5,9 @@ def main():
     ms=(m**2)+1
     delrelx= (1/ms)**0.5
     delrely=(m)/((ms)**0.5)
-    a= 5
-    b=0.1
-    c=15
+    a= -6.9834437936715
+    b=-0.36562274114452
+    c=1.3158896161408
     k2 = m+b
     ll= 0#int(input("Please enter a lower limit for the reddening vector: "))
     ul= 10#int(input("Please enter an upper limit for the reddening vector: "))
