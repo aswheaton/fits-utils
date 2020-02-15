@@ -485,14 +485,54 @@ def reduce_raws(raw_list, master_dark_frame, master_flat_frame, dir):
     print("\nDone!")
     return science_list
 
-def get_mag(flux, flux_err, zpoint):
-    mag = zpoint - (2.5*np.log(flux)/np.log(10))
-    mag_err = (-2.5/np.log(10))*(flux_err/flux)
+def load_cat(filename, zpr, zpg, zpu):
+    catalog = np.loadtxt(filename)
+    r_mag, r_err = zp_correct(catalog[:,5], catalog[:,6], zpr)
+    g_mag, g_err = zp_correct(catalog[:,3], catalog[:,4], zpg)
+    u_mag, u_err = zp_correct(catalog[:,7], catalog[:,8], zpu)
+    return(r_mag, r_err, g_mag, g_err, u_mag, u_err)
+
+def zp_correct(flux, flux_err, zpoint):
+    mag = zpoint - (2.5 * np.log(flux) / np.log(10))
+    mag_err = (-2.5 / np.log(10)) * (flux_err / flux)
     return mag, mag_err
 
-def minimiser(lambda_fit):
+def polynomial(x, coeffs):
+    """
+    Returns the corresponding y value for x, given the coefficients for an
+    nth-order polynomial as a list.
+    """
+    # Hard code for 4th order, better to use general case.
+    # y = A*x**4 + B*x**3 + C*x**2 + D*x**1 + E*x**0)
+    y = 0.0
+    for n in range(len(coeffs)):
+        y += coeffs[n] * x ** n
+    return(y)
+
+def get_chi_squ(x_obs, y_obs, func, coeffs):
+    """
+    Returns the chi-squared value for a given x,y dataset and a function handle
+    that returns the predicted predicted values.
+    """
+    # chi_squ_tot = 0.0
+    # for i in range(len(x_obs)):
+    #     y_exp = func(x_obs[i], coeffs=coeffs)
+    #     chi_squ = (y_obs[i] - y_exp[i])**2 / y_exp[i]
+    #     chi_squ_tot += chi_squ
+    y_exp = func(x_obs, coeffs)
+    chi_squ_tot = np.sum((y_obs-y_exp)**2 / y_exp)
+    return(chi_squ_tot)
+
+def minimiser_1(lambda_fit):
     best_lambda = float(lambda_fit[np.where(lambda_fit[:,1]==np.amin(lambda_fit[:,1]))[0],0])
     return(best_lambda)
+
+def minimiser_2(array):
+    """
+    Returns the index of the minimum value in a 1d-array.
+    """
+    index = np.where(array==np.amin(array))[0]
+    return(index)
 
 def plot_HR(x, y, x_label, y_label, target):
     """
