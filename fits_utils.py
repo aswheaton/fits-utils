@@ -509,18 +509,13 @@ def polynomial(x, coeffs):
         y += coeffs[n] * x ** n
     return(y)
 
-def get_chi_squ(x_obs, y_obs, func, coeffs):
+def get_chi_squ(x_obs, y_obs, y_err, func, coeffs):
     """
     Returns the chi-squared value for a given x,y dataset and a function handle
     that returns the predicted predicted values.
     """
-    # chi_squ_tot = 0.0
-    # for i in range(len(x_obs)):
-    #     y_exp = func(x_obs[i], coeffs=coeffs)
-    #     chi_squ = (y_obs[i] - y_exp[i])**2 / y_exp[i]
-    #     chi_squ_tot += chi_squ
     y_exp = func(x_obs, coeffs)
-    chi_squ_tot = np.sum((y_obs-y_exp)**2 / y_exp)
+    chi_squ_tot = np.sum((y_obs-y_exp)**2 / y_err**2)
     return(chi_squ_tot)
 
 def minimiser_1(lambda_fit):
