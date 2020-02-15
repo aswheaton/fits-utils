@@ -492,6 +492,31 @@ def load_cat(filename, zpr, zpg, zpu):
     u_mag, u_err = zp_correct(catalog[:,7], catalog[:,8], zpu)
     return(r_mag, r_err, g_mag, g_err, u_mag, u_err)
 
+def write_cat(r_mag, g_mag, u_mag, filename):
+    """
+    Method for creating a new catalog file from an ndarray.
+
+    Takes an ndarray and writes it out to a new catalog file with a '.cat'
+    extension. Creates a header for this file with the indexes included.
+
+    Args:
+        catalog (ndarray): Merged catalog data.
+        filename (str): Filename of the new catalog. Do not include the
+            extension, this is added automatically.
+    """
+    catalog = np.concatenate(r_mag, g_mag, u_mag)
+    #: str: New header text for the output file.
+    header_txt = '\n'.join(['[0] : NUMBER',
+                            '[1] : ALPHAPEAK_J2000',
+                            '[2] : DELTAPEAK_J2000',
+                            '[3] : FLUX_APER_G',
+                            '[4] : FLUXERR_APER_G',
+                            '[5] : FLUX_APER_R',
+                            '[6] : FLUXERR_APER_R',
+                            '[7] : FLUX_APER_U',
+                            '[8] : FLUXERR_APER_U'])
+    np.savetxt('cat/{}.cat'.format(filename), catalog, header=header_txt)
+
 def zp_correct(flux, flux_err, zpoint):
     mag = zpoint - (2.5 * np.log(flux) / np.log(10))
     mag_err = (-2.5 / np.log(10)) * (flux_err / flux)

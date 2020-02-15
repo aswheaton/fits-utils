@@ -49,7 +49,7 @@ def main():
     plt.scatter(gr_excess, ug_excess)
     plt.scatter(de_reddened_gr_excess, de_reddened_ug_excess)
     plt.scatter(gr_excess, polynomial(gr_excess, pleiades_coeffs))
-    plt.title("Dereddened U-V vs. G-R Colour Excess")
+    plt.title("Dereddened U-G vs. G-R Colour Excess")
     plt.show()
 
     # m= 0.9199548
