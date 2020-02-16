@@ -514,7 +514,7 @@ def write_cat(r_mag, g_mag, u_mag, filename):
         filename (str): Filename of the new catalog. Do not include the
             extension, this is added automatically.
     """
-    catalog = np.concatenate(r_mag, g_mag, u_mag)
+    catalog = np.stack((r_mag, g_mag, u_mag),axis=1)
     #: str: New header text for the output file.
     header_txt = '\n'.join(['[0] : NUMBER',
                             '[1] : ALPHAPEAK_J2000',
