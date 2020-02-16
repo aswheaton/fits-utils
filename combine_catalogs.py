@@ -82,10 +82,12 @@ def main():
     for band in bands:
         #: Store the catalogs.
         catalog[band] = read_catalog('cat/{}.cat'.format(band))
+    #: ndarray: New merged catalog for the g and r bands.
+    gr_catalog = match_sources(catalog['g'], catalog['r'])
     #: ndarray: New merged catalog for all bands.
-    new_catalog = match_sources(match_sources(catalog['g'], catalog['r']),
-                                catalog['u'])
-    create_catalog(new_catalog, 'combined')
+    ugr_catalog = match_sources(gr_catalog, catalog['u'])
+    create_catalog(ugr_catalog, 'ugr')
+    create_catalog(gr_catalog, 'gr')
 
 if __name__ == '__main__':
     main()
