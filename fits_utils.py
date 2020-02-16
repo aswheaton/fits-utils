@@ -237,7 +237,8 @@ def max_value_centroid(image_data, **kwargs):
     return((x_max[0], y_max[0]))
 
 def custom_roll(array, axis=0):
-    """Getting sum of nearest neighbours for each value in an array.
+    """
+    Getting sum of nearest neighbours for each value in an array.
 
     For each value in an ndarray, sums the nearest neighbours around that
     position for one axis. Pads array with zeroes, aligns array with dstack and
@@ -246,7 +247,6 @@ def custom_roll(array, axis=0):
     Args:
         array (ndarray): Array to be passed over.
         axis (int): Specific axis to be rolled over. Defaults to 0.
-
     """
     no = 3
     array = array.T if axis==1 else array
@@ -281,9 +281,10 @@ def create_mask(image_data, **kwargs):
         mask[:,-size:] = 1
     return(mask)
 
-def smooth(image_data, size, **kwargs):
+def smooth(image_data, **kwargs):
     from scipy.ndimage import gaussian_filter
-    smoothed_image = gaussian_filter(image_data, size)
+    sigma = kwargs.get("sigma")
+    smoothed_image = gaussian_filter(image_data, sigma)
     return(smoothed_image)
 
 def weighted_mean_2D(cutout,**kwargs):
@@ -330,26 +331,13 @@ def hybrid_centroid(image_data, **kwargs):
         x_max, y_max = max_value_centroid(masked_data)
     # Attempt to smooth out pixels which may confuse the initial guess.
     elif kwargs.get("filter") == "gaussian":
-        x_max, y_max = max_value_centroid(smooth(image_data, size))
+        x_max, y_max = max_value_centroid(smooth(image_data, sigma=0.25*size))
     # A hybrid method for aligning very faint images.
     elif kwargs.get("filter") == "combined":
-        smoothed_data = smooth(image_data, size)
+        smoothed_data = smooth(image_data, sigma=0.25*size)
         mask_array = create_mask(smoothed_data, condition="neighbors", border=100)
         masked_data = np.ma.array(smoothed_data, mask=mask_array)
         x_max, y_max = max_value_centroid(masked_data)
-        if x_max == 50:
-            # print("\nimage_data: ",image_data.shape)
-            # print("smooth_data: ", smoothed_data.shape)
-            # print("masked_data: ", masked_data.shape)
-            # print("initial guess: ", x_max, y_max)
-            plt.imshow(image_data, norm=LogNorm())
-            plt.show()
-            plt.imshow(smoothed_data, norm=LogNorm())
-            plt.show()
-            plt.imshow(mask_array, norm=LogNorm())
-            plt.show()
-            plt.imshow(masked_data, norm=LogNorm())
-            plt.show()
     # Get the maximum value of the cutout as an initial guess.
     else:
         x_max, y_max = max_value_centroid(image_data)
@@ -465,8 +453,13 @@ def rgb(image_r, image_g, image_b):
     """
     from astropy.visualization import make_lupton_rgb
     rgb_image = make_lupton_rgb(image_r, image_g, image_b, Q=10, stretch=1000.)
-    plt.imshow(rgb_image)
+    plt.imshow(rgb_image, norm=LogNorm())
     plt.show()
+    plt.axis("off")
+    fig = plt.imshow(rgb_image, norm=LogNorm())
+    fig.axes.get_xaxis().set_visible(False)
+    fig.axes.get_yaxis().set_visible(False)
+    plt.savefig("false_colour.jpeg", bbox_inches="tight", pad_inches=0, dpi=1000)
 
 def reduce_raws(raw_list, master_dark_frame, master_flat_frame, dir):
     """
@@ -501,11 +494,75 @@ def get_mag(flux, flux_err, zpoint):
     """
     mag = zpoint - (2.5*np.log(flux)/np.log(10))
     mag_err = (-2.5/np.log(10))*(flux_err/flux)
+
+def load_cat(filename, zpr, zpg, zpu):
+    catalog = np.loadtxt(filename)
+    r_mag, r_err = zp_correct(catalog[:,5], catalog[:,6], zpr)
+    g_mag, g_err = zp_correct(catalog[:,3], catalog[:,4], zpg)
+    u_mag, u_err = zp_correct(catalog[:,7], catalog[:,8], zpu)
+    return(r_mag, r_err, g_mag, g_err, u_mag, u_err)
+
+def write_cat(r_mag, g_mag, u_mag, filename):
+    """
+    Method for creating a new catalog file from an ndarray.
+
+    Takes an ndarray and writes it out to a new catalog file with a '.cat'
+    extension. Creates a header for this file with the indexes included.
+
+    Args:
+        catalog (ndarray): Merged catalog data.
+        filename (str): Filename of the new catalog. Do not include the
+            extension, this is added automatically.
+    """
+    catalog = np.concatenate(r_mag, g_mag, u_mag)
+    #: str: New header text for the output file.
+    header_txt = '\n'.join(['[0] : NUMBER',
+                            '[1] : ALPHAPEAK_J2000',
+                            '[2] : DELTAPEAK_J2000',
+                            '[3] : FLUX_APER_G',
+                            '[4] : FLUXERR_APER_G',
+                            '[5] : FLUX_APER_R',
+                            '[6] : FLUXERR_APER_R',
+                            '[7] : FLUX_APER_U',
+                            '[8] : FLUXERR_APER_U'])
+    np.savetxt('cat/{}.cat'.format(filename), catalog, header=header_txt)
+
+def zp_correct(flux, flux_err, zpoint):
+    mag = zpoint - (2.5 * np.log(flux) / np.log(10))
+    mag_err = (-2.5 / np.log(10)) * (flux_err / flux)
     return mag, mag_err
 
-def minimiser(lambda_fit):
+def polynomial(x, coeffs):
+    """
+    Returns the corresponding y value for x, given the coefficients for an
+    nth-order polynomial as a list.
+    """
+    # Hard code for 4th order, better to use general case.
+    # y = A*x**4 + B*x**3 + C*x**2 + D*x**1 + E*x**0)
+    y = 0.0
+    for n in range(len(coeffs)):
+        y += coeffs[n] * x ** n
+    return(y)
+
+def get_chi_squ(x_obs, y_obs, y_err, func, coeffs):
+    """
+    Returns the chi-squared value for a given x,y dataset and a function handle
+    that returns the predicted predicted values.
+    """
+    y_exp = func(x_obs, coeffs)
+    chi_squ_tot = np.sum((y_obs-y_exp)**2 / y_err**2)
+    return(chi_squ_tot)
+
+def minimiser_1(lambda_fit):
     best_lambda = float(lambda_fit[np.where(lambda_fit[:,1]==np.amin(lambda_fit[:,1]))[0],0])
     return(best_lambda)
+
+def minimiser_2(array):
+    """
+    Returns the index of the minimum value in a 1d-array.
+    """
+    index = np.where(array==np.amin(array))[0]
+    return(index)
 
 def plot_diagram(plts, **kwargs):
     """
