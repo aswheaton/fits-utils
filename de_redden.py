@@ -10,18 +10,20 @@ def main():
     # Zero points from zero-point-calculator.
     zpr, zpg, zpu = 30.0, 30.0, 27.0
     # Get the zero point corrected catalog and error.
+<<<<<<< HEAD
     r_mag, r_err, g_mag, g_err, u_mag, u_err = load_cat('cat/combined.cat', zpr, zpg, zpu)
     error = (g_err**2 + r_err**2 + u_err**2)**0.5
+=======
+    r_mag, r_err, g_mag, g_err, u_mag, u_err = load_cat('cat/ugr.cat', zpr,
+                                                        zpg, zpu)
+    sqr_err = g_err**2 + r_err**2 + u_err**2
+>>>>>>> 765ae0bb56bea0d3b496e24c7e94adfb401bb41f
     # Calculate the colour excess.
     gr_excess = g_mag - r_mag
     ug_excess = u_mag - g_mag
     # Calculate error on colour excess.
     gr_excess_err = g_err + r_err
     ug_excess_err = u_err + g_err
-
-    plt.scatter(ug_excess,gr_excess)
-    plt.title("Reddened U-V vs. G-R Colour Excess")
-    plt.show()
 
     # 2d Array containing x,y components of reddening vector and the
     # corresponding chi-squared value for that shift.
@@ -61,7 +63,8 @@ def main():
     de_reddened_g_mag = g_mag - g_abs
     de_reddened_u_mag = u_mag - u_abs
 
-    write_cat(r_mag, de_reddened_g_mag, de_reddened_u_mag, "de_reddened_combined.cat")
+    write_cat(r_mag, de_reddened_g_mag, de_reddened_u_mag,
+              "de_reddened_combined")
 
     # m= 0.9199548
     # ms=(m**2)+1
