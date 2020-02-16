@@ -5,6 +5,8 @@ def main():
     # Pleaides fit values.
     A, B, C, D, E = 1.283, -0.107, -2.748, 8.477, -3.141
     pleiades_coeffs = [A, B, C, D, E]
+    # Central wavelength of filters, in Angstroms.
+    r_lambda, g_lambda, u_lambda = 6231, 4770, 3543
     # Zero points from zero-point-calculator.
     zpr, zpg, zpu = 30.0, 30.0, 27.0
     # Get the zero point corrected catalog and error.
@@ -51,6 +53,14 @@ def main():
     plt.scatter(gr_excess, polynomial(gr_excess, pleiades_coeffs))
     plt.title("Dereddened U-G vs. G-R Colour Excess")
     plt.show()
+
+    g_abs = best_red_vec_x * (1 - ((g_lambda/r_lambda) - 1)**-1)
+    u_abs = best_red_vec_y * (1 - ((u_lambda/g_lambda) - 1)**-1)
+
+    de_reddened_g_mag = g_mag - g_abs
+    de_reddened_u_mag = u_mag - u_abs
+
+    write_cat(r_mag, de_reddened_g_mag, de_reddened_u_mag, "de_reddened_combined.cat")
 
     # m= 0.9199548
     # ms=(m**2)+1
