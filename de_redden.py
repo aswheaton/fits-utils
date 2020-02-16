@@ -11,7 +11,7 @@ def main():
     zpr, zpg, zpu = 30.0, 30.0, 27.0
     # Get the zero point corrected catalog and error.
     r_mag, r_err, g_mag, g_err, u_mag, u_err = load_cat('cat/combined.cat', zpr, zpg, zpu)
-    sqr_err = g_err**2 + r_err**2 + u_err**2
+    error = (g_err**2 + r_err**2 + u_err**2)**0.5
     # Calculate the colour excess.
     gr_excess = g_mag - r_mag
     ug_excess = u_mag - g_mag
@@ -31,9 +31,10 @@ def main():
         for red_vec_y in np.linspace(-10.0, 10.0, 100):
             gr_excess_shifted = gr_excess + red_vec_x
             ug_excess_shifted = ug_excess + red_vec_y
-            chi_squ = get_chi_squ(gr_excess_shifted, ug_excess_shifted,
-                                  ug_excess_err, polynomial, pleiades_coeffs
-                                 )
+            chi_squ = get_chi_squ(gr_excess, ug_excess, gr_excess_shifted,
+                                  ug_excess_shifted, polynomial, pleiades_coeffs,
+                                  error
+                                  )
             params_and_fit[row,0] = red_vec_x
             params_and_fit[row,1] = red_vec_y
             params_and_fit[row,2] = chi_squ

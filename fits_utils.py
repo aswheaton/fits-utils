@@ -544,13 +544,23 @@ def polynomial(x, coeffs):
         y += coeffs[n] * x ** n
     return(y)
 
-def get_chi_squ(x_obs, y_obs, y_err, func, coeffs):
+def get_r(red_x, red_y, hyp_x, hyp_y, func, coeffs):
+    slope = (hyp_y - red_y) / (hyp_x - red_x)
+    x_vals = np.linspace(red_x, hyp_x, 1000)
+    y_val_vec = slope * x_vals + red_y
+    y_val_cur = polynomial(x_vals, coeffs)
+    y_diffs = abs(y_val_vec - y_val_cur)
+    index = np.where(y_diffs == np.amin(y_diffs))
+    x_int, y_int = x_vals[index], y_val_cur[index]
+    r = ((hyp_x-x_int)**2 + (hyp_y-y_int)**2)**0.5
+    return(r)
+
+def get_chi_squ(red_x, red_y, hyp_x, hyp_y, func, coeffs, error):
     """
     Returns the chi-squared value for a given x,y dataset and a function handle
     that returns the predicted predicted values.
     """
-    y_exp = func(x_obs, coeffs)
-    chi_squ_tot = np.sum((y_obs-y_exp)**2 / y_err**2)
+    chi_squ_tot = np.sum((get_r(red_x, red_y, hyp_x, hyp_y, func, coeffs))**2 / error**2)
     return(chi_squ_tot)
 
 def minimiser_1(lambda_fit):
