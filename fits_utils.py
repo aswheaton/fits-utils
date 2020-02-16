@@ -495,6 +495,11 @@ def get_mag(flux, flux_err, zpoint):
     mag = zpoint - (2.5*np.log(flux)/np.log(10))
     mag_err = (-2.5/np.log(10))*(flux_err/flux)
 
+def zp_correct(flux, flux_err, zpoint):
+    mag = zpoint - (2.5 * np.log(flux) / np.log(10))
+    mag_err = (-2.5 / np.log(10)) * (flux_err / flux)
+    return mag, mag_err
+
 def load_cat(filename, zpr, zpg, zpu):
     catalog = np.loadtxt(filename)
     r_mag, r_err = zp_correct(catalog[:,5], catalog[:,6], zpr)
@@ -527,11 +532,6 @@ def write_cat(r_mag, g_mag, u_mag, filename):
                             '[8] : FLUXERR_APER_U'])
     np.savetxt('cat/{}.cat'.format(filename), catalog, header=header_txt)
 
-def zp_correct(flux, flux_err, zpoint):
-    mag = zpoint - (2.5 * np.log(flux) / np.log(10))
-    mag_err = (-2.5 / np.log(10)) * (flux_err / flux)
-    return mag, mag_err
-
 def polynomial(x, coeffs):
     """
     Returns the corresponding y value for x, given the coefficients for an
@@ -550,7 +550,7 @@ def get_r(red_x, red_y, hyp_x, hyp_y, func, coeffs):
     y_val_vec = slope * x_vals + red_y
     y_val_cur = polynomial(x_vals, coeffs)
     y_diffs = abs(y_val_vec - y_val_cur)
-    index = np.where(y_diffs == np.amin(y_diffs))
+    index = np.where(y_diffs == np.amin(y_diffs))[0]
     x_int, y_int = x_vals[index], y_val_cur[index]
     r = ((hyp_x-x_int)**2 + (hyp_y-y_int)**2)**0.5
     return(r)
@@ -603,4 +603,4 @@ def plot_diagram(plts, **kwargs):
     plt.draw()
     plt.show()
     if kwargs.get('filename')!=None:
-        fig.savefig('plots/{}.png'.format(kwargs.get('filename')))
+        fig.savefig('plots/{}.jpeg'.format(kwargs.get('filename')), dpi=1000)
