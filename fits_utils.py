@@ -30,6 +30,7 @@ import configparser
 
 from matplotlib.colors import LogNorm
 from scipy.stats import mode
+from scipy.ndimage import gaussian_filter
 from pathlib import Path
 from astropy.io import fits
 from os import walk
@@ -282,7 +283,6 @@ def create_mask(image_data, **kwargs):
     return(mask)
 
 def smooth(image_data, **kwargs):
-    from scipy.ndimage import gaussian_filter
     sigma = kwargs.get("sigma")
     smoothed_image = gaussian_filter(image_data, sigma)
     return(smoothed_image)
@@ -375,11 +375,37 @@ def align(images, **kwargs):
     for image in images:
         counter += 1
         print("---Finding Centre {} of {}".format(counter, len(images)), end="\r")
-        centroid = hybrid_centroid(image["data"], size=50, filter=filter)
+        centroid = max_value_centroid(image["data"], size=50, filter=filter)
         x_centroids.append(centroid[0])
         y_centroids.append(centroid[1])
         image["XCENT"] = centroid[0]
         image["YCENT"] = centroid[1]
+
+        # if counter == 1:
+        #
+        #     fig1 = plt.imshow(smooth(image['data'], sigma=3), origin='lower', cmap='viridis', norm=LogNorm())
+        #     plt.scatter(centroid[1], centroid[0], s=1, c='red', marker='o')
+        #     import matplotlib.patches as patches
+        #     rect = patches.Rectangle((centroid[1]-30,centroid[0]-30),60,60,linewidth=1,edgecolor='r',facecolor='none')
+        #     fig1.axes.add_patch(rect)
+        #     fig1.axes.get_xaxis().set_visible(False)
+        #     fig1.axes.get_yaxis().set_visible(False)
+        #     plt.savefig("r_hybrid_centroid_full.jpeg", bbox_inches="tight", pad_inches=0, dpi=1000)
+        #
+        #     small_image = np.array(image['data'][centroid[0]-30:centroid[0]+30,centroid[1]-30:centroid[1]+30])
+        #     fig2 = plt.imshow(smooth(small_image, sigma=3), origin='lower', cmap='viridis', norm=LogNorm())
+        #     plt.scatter(30,30, s=1, c='red', marker='o')
+        #     fig2.axes.get_xaxis().set_visible(False)
+        #     fig2.axes.get_yaxis().set_visible(False)
+        #     plt.savefig("r_hybrid_centroid_small.jpeg", bbox_inches="tight", pad_inches=0, dpi=1000)
+        #
+        #     small_image = np.array(image['data'][centroid[0]-30:centroid[0]+30,centroid[1]-30:centroid[1]+30])
+        #     margin = [np.sum(small_image, axis=1)]
+        #     fig2 = plt.imshow(margin, origin='lower', cmap='viridis', norm=LogNorm())
+        #     fig2.axes.get_xaxis().set_visible(False)
+        #     fig2.axes.get_yaxis().set_visible(False)
+        #     plt.savefig("r_max_margin_1.jpeg", bbox_inches="tight", pad_inches=0, dpi=1000)
+
     print()
     max_pos = (max(x_centroids), max(y_centroids))
     min_pos = (min(x_centroids), min(y_centroids))
