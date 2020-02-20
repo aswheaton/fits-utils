@@ -589,16 +589,44 @@ def get_chi_squ(red_x, red_y, hyp_x, hyp_y, func, coeffs, error):
     chi_squ_tot = np.sum((get_r(red_x, red_y, hyp_x, hyp_y, func, coeffs))**2 / error**2)
     return(chi_squ_tot)
 
-def minimiser_1(lambda_fit):
-    best_lambda = float(lambda_fit[np.where(lambda_fit[:,1]==np.amin(lambda_fit[:,1]))[0],0])
-    return(best_lambda)
-
-def minimiser_2(array):
+def minimiser(array):
     """
     Returns the index of the minimum value in a 1d-array.
     """
     index = np.where(array==np.amin(array))[0]
     return(index)
+
+def cardelli_a(x):
+    y = x - 1.82
+    spam = (1 + 0.17699 * y
+            - 0.50447 * y**2
+            -0.02427 * y**3
+            + 0.72085 * y**4
+            + 0.01979 * y**5
+            - 0.77530 * y**6
+            + 0.32999 * y**7
+            )
+    return(spam)
+
+def cardelli_b(x):
+    y = x - 1.82
+    eggs = (1.41338 * y
+            + 2.28305 * y**2
+            + 1.07233 * y**3
+            - 5.38434 * y**4
+            - 0.62251 * y**5
+            + 5.30260 * y**6
+            - 2.09002 * y**7
+            )
+    return(eggs)
+
+def cardelli_const(not_gamma):
+    R_v = 3.1 # Ratio of selective to total extinction
+    const = cardelli_a(1/not_gamma) + cardelli_b(1/not_gamma) / R_v
+    return(const)
+
+def get_cardelli_slope(c_constants):
+    return((c_constants['u']-c_constants['g'])/(c_constants['g']-c_constants['r']))
 
 def plot_diagram(plts, **kwargs):
     """
