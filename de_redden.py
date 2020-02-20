@@ -50,8 +50,13 @@ def main():
     de_reddened_gr_excess = gr_excess + best_red_vec_x
     de_reddened_ug_excess = ug_excess + best_red_vec_y
 
-    u_abs = best_red_vec_y * (1 - ((u_lambda/g_lambda) - 1)**-1)
+    g_abs = best_red_vec_y * (1 - ((g_lambda/u_lambda) - 1)**-1)
+    u_abs = best_red_vec_y + g_abs
+    r_abs = g_abs - best_red_vec_x
+    de_reddened_r_mag = r_mag + r_abs
+    de_reddened_g_mag = g_mag + g_abs
     de_reddened_u_mag = u_mag + u_abs
+
 
 # Begin second reddening vector determination, which calculates the de-reddened
 # colour excess in the g-u and u-r, and the absorption in the g-band.
