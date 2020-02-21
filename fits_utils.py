@@ -30,6 +30,7 @@ import configparser
 
 from matplotlib.colors import LogNorm
 from scipy.stats import mode
+from scipy.ndimage import gaussian_filter
 from pathlib import Path
 from astropy.io import fits
 from os import walk
@@ -282,7 +283,6 @@ def create_mask(image_data, **kwargs):
     return(mask)
 
 def smooth(image_data, **kwargs):
-    from scipy.ndimage import gaussian_filter
     sigma = kwargs.get("sigma")
     smoothed_image = gaussian_filter(image_data, sigma)
     return(smoothed_image)
@@ -375,11 +375,37 @@ def align(images, **kwargs):
     for image in images:
         counter += 1
         print("---Finding Centre {} of {}".format(counter, len(images)), end="\r")
-        centroid = hybrid_centroid(image["data"], size=50, filter=filter)
+        centroid = max_value_centroid(image["data"], size=50, filter=filter)
         x_centroids.append(centroid[0])
         y_centroids.append(centroid[1])
         image["XCENT"] = centroid[0]
         image["YCENT"] = centroid[1]
+
+        # if counter == 1:
+        #
+        #     fig1 = plt.imshow(smooth(image['data'], sigma=3), origin='lower', cmap='viridis', norm=LogNorm())
+        #     plt.scatter(centroid[1], centroid[0], s=1, c='red', marker='o')
+        #     import matplotlib.patches as patches
+        #     rect = patches.Rectangle((centroid[1]-30,centroid[0]-30),60,60,linewidth=1,edgecolor='r',facecolor='none')
+        #     fig1.axes.add_patch(rect)
+        #     fig1.axes.get_xaxis().set_visible(False)
+        #     fig1.axes.get_yaxis().set_visible(False)
+        #     plt.savefig("r_hybrid_centroid_full.jpeg", bbox_inches="tight", pad_inches=0, dpi=1000)
+        #
+        #     small_image = np.array(image['data'][centroid[0]-30:centroid[0]+30,centroid[1]-30:centroid[1]+30])
+        #     fig2 = plt.imshow(smooth(small_image, sigma=3), origin='lower', cmap='viridis', norm=LogNorm())
+        #     plt.scatter(30,30, s=1, c='red', marker='o')
+        #     fig2.axes.get_xaxis().set_visible(False)
+        #     fig2.axes.get_yaxis().set_visible(False)
+        #     plt.savefig("r_hybrid_centroid_small.jpeg", bbox_inches="tight", pad_inches=0, dpi=1000)
+        #
+        #     small_image = np.array(image['data'][centroid[0]-30:centroid[0]+30,centroid[1]-30:centroid[1]+30])
+        #     margin = [np.sum(small_image, axis=1)]
+        #     fig2 = plt.imshow(margin, origin='lower', cmap='viridis', norm=LogNorm())
+        #     fig2.axes.get_xaxis().set_visible(False)
+        #     fig2.axes.get_yaxis().set_visible(False)
+        #     plt.savefig("r_max_margin_1.jpeg", bbox_inches="tight", pad_inches=0, dpi=1000)
+
     print()
     max_pos = (max(x_centroids), max(y_centroids))
     min_pos = (min(x_centroids), min(y_centroids))
@@ -563,16 +589,44 @@ def get_chi_squ(red_x, red_y, hyp_x, hyp_y, func, coeffs, error):
     chi_squ_tot = np.sum((get_r(red_x, red_y, hyp_x, hyp_y, func, coeffs))**2 / error**2)
     return(chi_squ_tot)
 
-def minimiser_1(lambda_fit):
-    best_lambda = float(lambda_fit[np.where(lambda_fit[:,1]==np.amin(lambda_fit[:,1]))[0],0])
-    return(best_lambda)
-
-def minimiser_2(array):
+def minimiser(array):
     """
     Returns the index of the minimum value in a 1d-array.
     """
     index = np.where(array==np.amin(array))[0]
     return(index)
+
+def cardelli_a(x):
+    y = x - 1.82
+    spam = (1 + 0.17699 * y
+            - 0.50447 * y**2
+            -0.02427 * y**3
+            + 0.72085 * y**4
+            + 0.01979 * y**5
+            - 0.77530 * y**6
+            + 0.32999 * y**7
+            )
+    return(spam)
+
+def cardelli_b(x):
+    y = x - 1.82
+    eggs = (1.41338 * y
+            + 2.28305 * y**2
+            + 1.07233 * y**3
+            - 5.38434 * y**4
+            - 0.62251 * y**5
+            + 5.30260 * y**6
+            - 2.09002 * y**7
+            )
+    return(eggs)
+
+def cardelli_const(not_gamma):
+    R_v = 3.1 # Ratio of selective to total extinction
+    const = cardelli_a(1/not_gamma) + cardelli_b(1/not_gamma) / R_v
+    return(const)
+
+def get_cardelli_slope(c_constants):
+    return((c_constants['u']-c_constants['g'])/(c_constants['g']-c_constants['r']))
 
 def plot_diagram(plts, **kwargs):
     """

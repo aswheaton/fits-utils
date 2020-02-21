@@ -42,18 +42,17 @@ def main():
             params_and_fit[row,2] = chi_squ
             row += 1
 
-    best_row = minimiser_2(params_and_fit[:,2])
+    best_row = minimiser(params_and_fit[:,2])
     best_fit = np.array(params_and_fit[best_row,:])
     best_red_vec_x, best_red_vec_y, chi_squ_min = best_fit[0,0], best_fit[0,1], best_fit[0,2]
 
-    print("Best chi-squared: {}, for reddening vector with components {}E(g-r)+{}E(u-g)".format(chi_squ_min, best_red_vec_x, best_red_vec_y))
     de_reddened_gr_excess = gr_excess + best_red_vec_x
     de_reddened_ug_excess = ug_excess + best_red_vec_y
 
     g_abs = best_red_vec_y * (1 - ((g_lambda/u_lambda) - 1)**-1)
     u_abs = best_red_vec_y + g_abs
     r_abs = g_abs - best_red_vec_x
-    
+
     de_reddened_r_mag = r_mag + r_abs
     de_reddened_g_mag = g_mag + g_abs
     de_reddened_u_mag = u_mag + u_abs
@@ -61,6 +60,20 @@ def main():
     # All dereddening calculations complete, write out the catalogue.
     write_cat(de_reddened_r_mag, de_reddened_g_mag, de_reddened_u_mag,
               "de_reddened_combined")
+
+    # Calculate the slope of the reddening vector and compare to the Cardelli
+    # value.
+
+    numerical_slope = best_red_vec_y / best_red_vec_x
+    cardelli_consts = {'r' : cardelli_const(r_lambda),
+                       'g' : cardelli_const(g_lambda),
+                       'u' : cardelli_const(u_lambda)
+                      }
+    cardelli_slope = get_cardelli_slope(cardelli_consts)
+
+    print("Best chi-squared: {}, for reddening vector with components {}E(g-r)+{}E(u-g)".format(chi_squ_min, best_red_vec_x, best_red_vec_y))
+    print("Numerically determined slope: {}".format(numerical_slope))
+    print("Cardelli determined slope: {}".format(cardelli_slope))
 
     # dict = {}
     # dict["M52 Uncorrected"] = (gr_excess,ug_excess,"o")
@@ -71,4 +84,5 @@ def main():
     #              sup_title="M52\nColour-Colour Diagram",
     #              legend=True, filename="M52_Colour-Colour_Diagram"
     #             )
+
 main()
