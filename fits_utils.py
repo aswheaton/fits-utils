@@ -571,6 +571,7 @@ def polynomial(x, coeffs):
     return(y)
 
 def get_r(red_x, red_y, hyp_x, hyp_y, func, coeffs):
+    # Slope of the DE-reddening vector.
     slope = (hyp_y - red_y) / (hyp_x - red_x)
     x_vals = np.linspace(red_x, hyp_x, 1000)
     y_val_vec = slope * x_vals + red_y
