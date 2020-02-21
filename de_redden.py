@@ -1,9 +1,10 @@
 from fits_utils import *
+import matplotlib.pyplot as plts
 
 def main():
 
-    # Central wavelength of filters, in Angstroms.
-    r_lambda, g_lambda, u_lambda = 6231, 4770, 3543
+    # Central wavelength of filters, in micrometers.
+    r_lambda, g_lambda, u_lambda = 0.6231, 0.4770, 0.3543
     # Zero points from zero-point-calculator.
     zpr, zpg, zpu = 30.236, 29.719, 27.075
     # Get the zero point corrected catalogue and error.
@@ -31,9 +32,9 @@ def main():
     # the particular reddening vector magnitude.
     params_and_fit = []
     # Iterate over reasonable range of values for the reddening vector magnitude.
-    for red_vec_mag in np.linspace(-2.0,  2.0, 1000):
-        red_vec_x = red_vec_mag**2 / (1 + red_vec_mag**2)
-        red_vec_y = red_vec_mag**2 / (1 + red_vec_mag**-2)
+    for red_vec_mag in np.linspace(0.1,  3.0, 1000):
+        red_vec_x = red_vec_mag**2 / (1 + cardelli_slope**2)
+        red_vec_y = red_vec_mag**2 / (1 + cardelli_slope**-2)
         gr_excess_shifted = gr_excess - red_vec_x
         ug_excess_shifted = ug_excess - red_vec_y
         chi_squ = get_chi_squ(gr_excess, ug_excess, gr_excess_shifted,
@@ -44,15 +45,24 @@ def main():
 
     # Dirty data type change so minimisation can be performed.
     params_and_fit = np.array(params_and_fit)
+    plt.plot(params_and_fit[:,0], params_and_fit[:,3])
     row = minimiser(params_and_fit[:,3])
-    best_red_vec_mag, best_red_vec_x, best_red_vec_y, chi_squ_min = params_and_fit[row,:]
+    best_red_vec_mag, best_red_vec_x, best_red_vec_y, chi_squ_min = params_and_fit[row,:][0]
 
-    de_reddened_gr_excess = gr_excess + best_red_vec_x
-    de_reddened_ug_excess = ug_excess + best_red_vec_y
-
-    g_abs = best_red_vec_y * (1 - ((g_lambda/u_lambda) - 1)**-1)
+    g_abs = best_red_vec_y * ((g_lambda/u_lambda) - 1)**-1
     u_abs = best_red_vec_y + g_abs
     r_abs = g_abs - best_red_vec_x
+
+    v_abs_g = g_abs / cardelli_consts['g']
+    v_abs_u = u_abs / cardelli_consts['u']
+    v_abs_r = r_abs / cardelli_consts['r']
+
+    print("Cardelli slope: {}\nMagnitide: {}\nx-comp: {}\ny-comp: {}\nChi-Squ: {}".format(cardelli_slope, best_red_vec_mag, best_red_vec_x, best_red_vec_y, chi_squ_min))
+    print("A_g = {}\nA_u = {}\nA_r = {}".format(g_abs,u_abs,r_abs))
+    print("A_v = {} (from A_g)\nA_v = {} (from A_u)\nA_v = {} (from A_r)".format(v_abs_g,v_abs_u,v_abs_r))
+
+    de_reddened_gr_excess = gr_excess - best_red_vec_x
+    de_reddened_ug_excess = ug_excess - best_red_vec_y
 
     de_reddened_r_mag = r_mag + r_abs
     de_reddened_g_mag = g_mag + g_abs
@@ -61,8 +71,6 @@ def main():
     # All dereddening calculations complete, write out the catalogue.
     write_cat(de_reddened_r_mag, de_reddened_g_mag, de_reddened_u_mag,
               "de_reddened_combined")
-
-    print("Best chi-squared: {}, for reddening vector with components {}E(g-r)+{}E(u-g)".format(chi_squ_min, best_red_vec_x, best_red_vec_y))
 
     dict = {}
     dict["M52 Uncorrected"] = (gr_excess,ug_excess,"o")
