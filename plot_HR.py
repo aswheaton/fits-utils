@@ -17,18 +17,19 @@ def main():
 
     pleiades_data = np.loadtxt('pleiades/pleiadescutoff.txt')
     pleiades_gr, pleiades_ug = pleiades_data[:,0], pleiades_data[:,1]
-    pleiades_fit = np.polyfit(pleiades_gr, pleiades_ug, 4)
+    pleiades_cutoff = np.stack((pleiades_gr, pleiades_ug),axis=1)
+    pleiades_cutoff = pleiades_cutoff[pleiades_cutoff[:,0] < 0.215]
+    pleiades_fit = np.polyfit(pleiades_cutoff[:,0], pleiades_cutoff[:,1], 2)
     trendline = np.poly1d(pleiades_fit)
-    trend_vals = np.linspace(-2, 2, 1000)
+    trend_vals = np.linspace(-0.6, 0.6, 1000)
 
     plts = {'Pleiades Data' : (pleiades_gr, pleiades_ug, 'o'),
             'M52 Uncorrected' : (color_gr, color_ug, 'o'),
-            'Pleiades Best Fit Line' : (trend_vals,
-                                        trendline(trend_vals), '-'),
-            'M52 De-reddened' : (corr_color_gr, corr_color_ug, 'o')}
-    plot_diagram(plts, x_label='Color: g - r', y_label='Color: u - g',
+            'Pleiades 2nd Order Best Fit Line' : (pleiades_cutoff[:,0],
+                                        trendline(pleiades_cutoff[:,0]), '-')}
+    plot_diagram(plts, x_label='Color: (g - r)', y_label='Color: (u - g)',
                  sup_title='Color-Color Diagram \n M52', legend=True,
-                 filename='M52_color_color_uncorrected')
+                 filename='M52_color_color_uncorrected_2o')
 
     # plot_HR(color_gr, color_ug, 'Color: G-R', 'Color: U-G', 'M52')
 
