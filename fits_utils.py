@@ -561,7 +561,7 @@ def write_cat(r_mag, g_mag, u_mag, filename):
 def polynomial(x, coeffs):
     """
     Returns the corresponding y value for x, given the coefficients for an
-    nth-order polynomial as a list.
+    nth-order polynomial as a list descending in order.
     """
     # Hard code for 4th order, better to use general case.
     # y = A*x**4 + B*x**3 + C*x**2 + D*x**1 + E*x**0)
@@ -587,7 +587,8 @@ def get_chi_squ(red_x, red_y, hyp_x, hyp_y, func, coeffs, error):
     Returns the chi-squared value for a given x,y dataset and a function handle
     that returns the predicted predicted values.
     """
-    chi_squ_tot = np.sum((get_r(red_x, red_y, hyp_x, hyp_y, func, coeffs))**2 / error**2)
+    # chi_squ_tot = np.sum((get_r(red_x, red_y, hyp_x, hyp_y, func, coeffs))**2 / error**2)
+    chi_squ_tot = np.sum(((func(red_x, coeffs) - hyp_y) / error)**2)
     return(chi_squ_tot)
 
 def minimiser(array):
