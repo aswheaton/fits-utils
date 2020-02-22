@@ -514,11 +514,7 @@ def reduce_raws(raw_list, master_dark_frame, master_flat_frame, dir):
 def get_zero_points(input_airmass):
 
     airmasses = np.array([1.02, 1.15, 1.70])
-<<<<<<< HEAD
     standard_mags = {"r":9.332, "g":9.872, "u":11.44}
-=======
-    standard_mags = {"r":9.332, "g":}
->>>>>>> 519e1a62f8ae1269a0c2752b03f3d2e6f4cd5421
 
     for band in ["r","g","u"]:
         counts_and_errs = np.loadtxt("standard_stars.csv")
