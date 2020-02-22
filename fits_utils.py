@@ -511,26 +511,35 @@ def reduce_raws(raw_list, master_dark_frame, master_flat_frame, dir):
     print("\nDone!")
     return science_list
 
-def get_mag(flux, flux_err, zpoint):
-    """Method for correcting counts for the zero point.
+def get_mag(flux, flux_error, zero_point):
+    """
+    Method for correcting counts for the zero point.
 
     Recieves the flux of an object and corrects it using the zero point of that
     specific band.
-
     """
-    mag = zpoint - (2.5*np.log(flux)/np.log(10))
-    mag_err = (-2.5/np.log(10))*(flux_err/flux)
+    mag = -2.5 * np.log10(flux) + zero_point
+    mag_err = (-2.5/flux/np.log(10)) * flux_error
+    return(mag, mag_err)
+
 
 def zp_correct(flux, flux_err, zpoint):
+    """
+    DEPRECATED
+    """
     mag = zpoint - (2.5 * np.log(flux) / np.log(10))
     mag_err = (-2.5 / np.log(10)) * (flux_err / flux)
     return mag, mag_err
 
 def load_cat(filename, zpr, zpg, zpu):
+    """
+    Loads in a catalogue output by Source Extractor and returns a numpy arrays
+    of calatogue fluxes and their errors after zero point correction.
+    """
     catalog = np.loadtxt(filename)
-    r_mag, r_err = zp_correct(catalog[:,5], catalog[:,6], zpr)
-    g_mag, g_err = zp_correct(catalog[:,3], catalog[:,4], zpg)
-    u_mag, u_err = zp_correct(catalog[:,7], catalog[:,8], zpu)
+    r_mag, r_err = get_mag(catalog[:,5], catalog[:,6], zpr)
+    g_mag, g_err = get_mag(catalog[:,3], catalog[:,4], zpg)
+    u_mag, u_err = get_mag(catalog[:,7], catalog[:,8], zpu)
     return(r_mag, r_err, g_mag, g_err, u_mag, u_err)
 
 def write_cat(r_mag, g_mag, u_mag, filename):
