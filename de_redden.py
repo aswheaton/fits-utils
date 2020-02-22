@@ -2,10 +2,11 @@ from fits_utils import *
 import matplotlib.pyplot as plts
 
 def main():
+
     # Central wavelength of filters, in micrometers.
     r_lambda, g_lambda, u_lambda = 0.6231, 0.4770, 0.3543
     # Zero points from zero-point-calculator.
-    zpr, zpg, zpu = 30.236, 29.719, 27.075
+    zpr, zpg, zpu = get_zero_points(airmass) # 30.236, 29.719, 27.075
     # Get the zero point corrected catalogue and error.
     r_mag, r_err, g_mag, g_err, u_mag, u_err = load_cat("cat/ugr.cat", zpr, zpg, zpu)
     # error = (g_err**2 + r_err**2 + u_err**2)**0.5

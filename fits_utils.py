@@ -511,6 +511,27 @@ def reduce_raws(raw_list, master_dark_frame, master_flat_frame, dir):
     print("\nDone!")
     return science_list
 
+def get_zero_points(input_airmass):
+
+    airmasses = np.array([1.02, 1.15, 1.70])
+    standard_mags = {"r":9.332, "g":9.872, "u":11.44}
+
+    for band in ["r","g","u"]:
+        counts_and_errs = np.loadtxt("standard_stars.csv")
+        zero_points = standard_mags[band] + 2.5 * np.log10(counts_and_errs[:,0])
+        zero_point_errs = counts_and_errs[:,1] * 2.5 / counts_and_errs[:,0] / np.log(10)
+
+        gradient = np.sum(zero_points-np.mean(zero_points)*(airmasses-np.mean(airmasses)))/np.sum((airmasses-np.mean(airmasses))**2)
+        intercept = np.mean(zero_points) - gradient * np.mean(airmasses)
+
+        zero_point = gradient * input_airmass + intercept
+
+        if band == "r": zpr= zero_point
+        elif band == "g": zpg, zpg_err = zero_point
+        elif band == "u": zpu, zpu_err = zero_point
+
+    return(zpr, zpg, zpu)
+
 def correct_pleiades(p_data):
     # Convert colour excess from Johnson U-B, B-V to Sloan u-g, g-r.
     p_data[:,0] = 1.02 * p_data[:,0] - 0.22
