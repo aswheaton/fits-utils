@@ -2,10 +2,18 @@ from fits_utils import *
 import matplotlib.pyplot as plts
 
 def correct_pleiades(p_data):
-    color_gr, color_ug = p_data[:,0], p_data[:,1]
-    color_gr = color_gr - 0.787 + 0.544
-    color_ug = color_ug - 1.009 + 0.787
-    return p_data
+    #: Deredden data in johnson band.
+    # p_data[:,1] = p_data[:,1] - 0.653
+    # p_data[:,2] = p_data[:,2] - 0.863 + 0.653
+    # p_data[:,3] = p_data[:,3] - 1.032 + 0.863
+    #: ndarray: Pleiades data in sloan bands.
+    p_data[:,2] = 1.28*p_data[:,2] + 1.13
+    p_data[:,3] = 1.02*p_data[:,3] - 0.22
+    p_data[:,2] = p_data[:,2] - 0.787 + 0.544
+    p_data[:,3] = p_data[:,3] - 1.009 + 0.787
+
+    header_txt = '[0]:No\t[1]:V\t[2]:g-r\t[3]:u-g'
+    np.savetxt('pleiades/SDSS_dereddened.txt', p_data, header=header_txt)
 
 def main():
 
@@ -20,10 +28,11 @@ def main():
 # Begin first reddening vector determination, which calculates the de-reddened
 # colour excess in the u-g and g-r, and the absorption in the g-band.
     #: ndarray: Pleiades data.
-    p_data = np.loadtxt('pleiades/pleiadescorrected.txt')
+    dr_p_data = np.loadtxt('pleiades/pleiades_johnson.txt')
+    correct_pleiades(dr_p_data)
+    p_data = np.loadtxt('pleiades/SDSS_dereddened.txt')
     #: ndarray: Deredden Pleiades data using extinction coeffs from NED.
-    p_data = correct_pleiades(p_data)
-    pleiades_coeffs = np.polyfit(p_data[:,0], p_data[:,1], 4)
+    pleiades_coeffs = np.polyfit(p_data[:,2], p_data[:,3], 4)
     print(pleiades_coeffs)
 
     # Pleaides fit values in E(u-g) vs. E(g-r) colour-colour space.
@@ -91,7 +100,10 @@ def main():
     dict = {}
     dict["M52 Uncorrected"] = (gr_excess,ug_excess,"o")
     dict["M52 De-reddened"] = (de_reddened_gr_excess,de_reddened_ug_excess,"o")
-    dict["Pleiades Fit"] = (np.linspace(-0.6,0.6,1000),polynomial(np.linspace(-0.6,0.6,1000), pleiades_coeffs),"-")
+    value_range = np.linspace(-0.6, 0.6, 1000)
+    dict["Pleiades Fit"] = (value_range,
+                            np.poly1d(pleiades_coeffs)(value_range), "-")
+    # dict["Pleiades Fit"] = (np.linspace(-0.6,0.6,1000),polynomial(np.linspace(-0.6,0.6,1000), pleiades_coeffs),"-")
 
     plot_diagram(dict, x_label="Colour:(g-r)", y_label="Colour:(u-g)",
                  sup_title="M52\nColour-Colour Diagram",
