@@ -1,6 +1,12 @@
 from fits_utils import *
 import matplotlib.pyplot as plts
 
+def correct_pleiades(p_data):
+    #: Deredden data in johnson band.
+    p_data[:,0] = p_data[:,0] - 1.009 + 0.787
+    p_data[:,1] = p_data[:,1] -0.787 + 0.544
+    return(p_data)
+
 def main():
 
     # Central wavelength of filters, in micrometers.
@@ -10,9 +16,21 @@ def main():
     # Get the zero point corrected catalogue and error.
     r_mag, r_err, g_mag, g_err, u_mag, u_err = load_cat("cat/ugr.cat", zpr, zpg, zpu)
     error = (g_err**2 + r_err**2 + u_err**2)**0.5
+
+# Begin first reddening vector determination, which calculates the de-reddened
+# colour excess in the u-g and g-r, and the absorption in the g-band.
+    #: ndarray: Pleiades data.
+    # p_data = np.loadtxt('pleiades/pleiades_johnson.txt')
+    p_data = np.loadtxt('pleiades/pleiadescorrected.txt')
+    p_data = correct_pleiades(p_data)
+    # p_data = np.loadtxt('pleiades/SDSS_dereddened.txt')
+    #: ndarray: Deredden Pleiades data using extinction coeffs from NED.
+    pleiades_coeffs = np.polyfit(p_data[:,1], p_data[:,0], 4)
+    print(pleiades_coeffs)
+
     # Pleaides fit values in E(u-g) vs. E(g-r) colour-colour space.
-    A, B, C, D, E = 1.283, -0.107, -2.748, 8.477, -3.141
-    pleiades_coeffs = [A, B, C, D, E]
+    # A, B, C, D, E = 1.283, -0.107, -2.748, 8.477, -3.141
+    # pleiades_coeffs = [A, B, C, D, E]
 
     # Calculate the colour excess.
     gr_excess = g_mag - r_mag # x-axis variable
@@ -75,7 +93,10 @@ def main():
     dict = {}
     dict["M52 Uncorrected"] = (gr_excess,ug_excess,"o")
     dict["M52 De-reddened"] = (de_reddened_gr_excess,de_reddened_ug_excess,"o")
-    dict["Pleiades Fit"] = (np.linspace(-0.6,0.6,1000),polynomial(np.linspace(-0.6,0.6,1000), pleiades_coeffs),"-")
+    value_range = np.linspace(-0.6, 0.6, 1000)
+    dict["Pleiades Fit"] = (value_range,
+                            np.poly1d(pleiades_coeffs)(value_range), "-")
+    # dict["Pleiades Fit"] = (np.linspace(-0.6,0.6,1000),polynomial(np.linspace(-0.6,0.6,1000), pleiades_coeffs),"-")
 
     plot_diagram(dict, x_label="Colour:(g-r)", y_label="Colour:(u-g)",
                  sup_title="M52\nColour-Colour Diagram",
