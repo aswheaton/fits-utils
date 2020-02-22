@@ -57,7 +57,7 @@ def main():
     # the particular reddening vector magnitude.
     params_and_fit = []
     # Iterate over reasonable range of values for the reddening vector magnitude.
-    for red_vec_mag in np.linspace(0.1,  3.0, 1000):
+    for red_vec_mag in np.linspace(0.0,  3.0, 1000):
         red_vec_x = red_vec_mag**2 / (1 + cardelli_slope**2)
         red_vec_y = red_vec_mag**2 / (1 + cardelli_slope**-2)
         gr_excess_shifted = gr_excess - red_vec_x
