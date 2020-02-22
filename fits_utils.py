@@ -511,25 +511,24 @@ def reduce_raws(raw_list, master_dark_frame, master_flat_frame, dir):
     print("\nDone!")
     return science_list
 
+def correct_pleiades(p_data):
+    # Convert colour excess from Johnson U-B, B-V to Sloan u-g, g-r.
+    p_data[:,0] = 1.02 * p_data[:,0] - 0.22
+    p_data[:,1] = 1.28 * p_data[:,1] + 1.14
+    # De-redden the converted data using transformations from NED.
+    p_data[:,0] = p_data[:,0] - 1.009 + 0.787
+    p_data[:,1] = p_data[:,1] - 0.787 + 0.544
+    return(p_data)
+
 def get_mag(flux, flux_error, zero_point):
     """
-    Method for correcting counts for the zero point.
-
-    Recieves the flux of an object and corrects it using the zero point of that
-    specific band.
+    Recieves the flux of an object, the error on that flux, and an instrumental
+    zero point and returns a zero point corrected magnitude and magnitude error
+    for the object.
     """
     mag = -2.5 * np.log10(flux) + zero_point
     mag_err = (-2.5/flux/np.log(10)) * flux_error
     return(mag, mag_err)
-
-
-def zp_correct(flux, flux_err, zpoint):
-    """
-    DEPRECATED
-    """
-    mag = zpoint - (2.5 * np.log(flux) / np.log(10))
-    mag_err = (-2.5 / np.log(10)) * (flux_err / flux)
-    return mag, mag_err
 
 def load_cat(filename, zpr, zpg, zpu):
     """
