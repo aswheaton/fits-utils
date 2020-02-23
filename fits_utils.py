@@ -513,29 +513,29 @@ def reduce_raws(raw_list, master_dark_frame, master_flat_frame, dir):
 
 def get_zero_points(input_airmass):
 
-    airmasses = np.array([1.02, 1.15, 1.70])
-    bd62_standard_mags = {"r":9.332, "g":9.872, "u":11.44}
+    # bd62_standard_mags = {"r":9.332, "g":9.872, "u":11.44}
+    # bd25_standard_mags = {"r":9.929, "g":9.432, "u":9.023}
 
     for band in ["r","g","u"]:
-        counts_and_errs = np.loadtxt("standard_stars.csv")
-        zero_points = standard_mags[band] + 2.5 * np.log10(counts_and_errs[:,0])
-        zero_point_errs = counts_and_errs[:,1] * 2.5 / counts_and_errs[:,0] / np.log(10)
+        counts_and_errs = np.loadtxt("standard_stars/standard_stars_{}.csv".format(band))
+        airmasses = np.array(counts_and_errs[:,3])
+        zero_points = counts_and_errs[:,0] + 2.5 * np.log10(counts_and_errs[:,1])
+        zero_point_errs = counts_and_errs[:,2] * 2.5 / counts_and_errs[:,1] / np.log(10)
 
-        gradient = np.sum(zero_points-np.mean(zero_points)*(airmasses-np.mean(airmasses)))/np.sum((airmasses-np.mean(airmasses))**2)
+        gradient = np.sum((airmasses-np.mean(airmasses))*(zero_points-np.mean(zero_points))) / np.sum((airmasses-np.mean(airmasses))**2)
         intercept = np.mean(zero_points) - gradient * np.mean(airmasses)
-
         zero_point = gradient * input_airmass + intercept
 
-        if band == "r": zpr, zpr_err = zero_point, zero_point_err
-        elif band == "g": zpg, zpg_err = zero_point, zero_point_err
-        elif band == "u": zpu, zpu_err = zero_point, zero_point_err
+        if band == "r": zpr = zero_point
+        elif band == "g": zpg = zero_point
+        elif band == "u": zpu = zero_point
 
     return(zpr, zpg, zpu)
 
 def correct_pleiades(p_data):
     # Convert colour excess from Johnson U-B, B-V to Sloan u-g, g-r.
     p_data[:,0] = 1.02 * p_data[:,0] - 0.22
-    p_data[:,1] = 1.28 * p_data[:,1] + 1.14
+    p_data[:,1] = 1.28 * p_data[:,1] + 1.13
     # De-redden the converted data using transformations from NED.
     p_data[:,0] = p_data[:,0] - 1.009 + 0.787
     p_data[:,1] = p_data[:,1] - 0.787 + 0.544

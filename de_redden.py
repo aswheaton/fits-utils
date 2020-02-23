@@ -6,7 +6,7 @@ def main():
     # Central wavelength of filters, in micrometers.
     r_lambda, g_lambda, u_lambda = 0.6231, 0.4770, 0.3543
     # Zero points from zero-point-calculator.
-    zpr, zpg, zpu = get_zero_points(airmass) # 30.236, 29.719, 27.075
+    zpr, zpg, zpu = get_zero_points(1.04) # Rory's ZP: 30.236, 29.719, 27.075
     # Get the zero point corrected catalogue and error.
     r_mag, r_err, g_mag, g_err, u_mag, u_err = load_cat("cat/ugr.cat", zpr, zpg, zpu)
     # error = (g_err**2 + r_err**2 + u_err**2)**0.5
@@ -33,9 +33,9 @@ def main():
     # the particular reddening vector magnitude.
     params_and_fit = []
     # Iterate over reasonable range of values for the reddening vector magnitude.
-    for red_vec_mag in np.linspace(0.01, 1.5, 1000):
-        red_vec_x = red_vec_mag**2 / (1 + cardelli_slope**2)
-        red_vec_y = red_vec_mag**2 / (1 + cardelli_slope**-2)
+    for red_vec_mag in np.linspace(0.0, 3.0, 1000):
+        red_vec_x = (red_vec_mag**2 / (1 + cardelli_slope**2))**0.5
+        red_vec_y = (red_vec_mag**2 / (1 + cardelli_slope**-2))**0.5
         gr_excess_shifted = gr_excess - red_vec_x
         ug_excess_shifted = ug_excess - red_vec_y
         chi_squ = get_chi_squ(gr_excess, ug_excess, gr_excess_shifted,
