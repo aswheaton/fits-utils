@@ -37,12 +37,12 @@ from os import walk
 
 def gen_config():
     config = configparser.ConfigParser()
-    config['TELESCOPE'] = {'Size': '15'}
-    config['DATA SETTINGS'] = {'Standard Star A': 'bd62',
-                               'Standard Star B': 'bd25',
-                               'Target ID': 'm52',
-                               'Bands': 'g, r, u'}
-    with open('config.ini', 'w') as configfile:
+    config["TELESCOPE"] = {"Size": "15"}
+    config["DATA SETTINGS"] = {"Standard Star A": "bd62",
+                               "Standard Star B": "bd25",
+                               "Target ID": "m52",
+                               "Bands": "g, r, u"}
+    with open("config.ini", "w") as configfile:
         config.write(configfile)
 
 def get_lists(dir):
@@ -383,25 +383,25 @@ def align(images, **kwargs):
 
         # if counter == 1:
         #
-        #     fig1 = plt.imshow(smooth(image['data'], sigma=3), origin='lower', cmap='viridis', norm=LogNorm())
-        #     plt.scatter(centroid[1], centroid[0], s=1, c='red', marker='o')
+        #     fig1 = plt.imshow(smooth(image["data"], sigma=3), origin="lower", cmap="viridis", norm=LogNorm())
+        #     plt.scatter(centroid[1], centroid[0], s=1, c="red", marker="o")
         #     import matplotlib.patches as patches
-        #     rect = patches.Rectangle((centroid[1]-30,centroid[0]-30),60,60,linewidth=1,edgecolor='r',facecolor='none')
+        #     rect = patches.Rectangle((centroid[1]-30,centroid[0]-30),60,60,linewidth=1,edgecolor="r",facecolor="none")
         #     fig1.axes.add_patch(rect)
         #     fig1.axes.get_xaxis().set_visible(False)
         #     fig1.axes.get_yaxis().set_visible(False)
         #     plt.savefig("r_hybrid_centroid_full.jpeg", bbox_inches="tight", pad_inches=0, dpi=1000)
         #
-        #     small_image = np.array(image['data'][centroid[0]-30:centroid[0]+30,centroid[1]-30:centroid[1]+30])
-        #     fig2 = plt.imshow(smooth(small_image, sigma=3), origin='lower', cmap='viridis', norm=LogNorm())
-        #     plt.scatter(30,30, s=1, c='red', marker='o')
+        #     small_image = np.array(image["data"][centroid[0]-30:centroid[0]+30,centroid[1]-30:centroid[1]+30])
+        #     fig2 = plt.imshow(smooth(small_image, sigma=3), origin="lower", cmap="viridis", norm=LogNorm())
+        #     plt.scatter(30,30, s=1, c="red", marker="o")
         #     fig2.axes.get_xaxis().set_visible(False)
         #     fig2.axes.get_yaxis().set_visible(False)
         #     plt.savefig("r_hybrid_centroid_small.jpeg", bbox_inches="tight", pad_inches=0, dpi=1000)
         #
-        #     small_image = np.array(image['data'][centroid[0]-30:centroid[0]+30,centroid[1]-30:centroid[1]+30])
+        #     small_image = np.array(image["data"][centroid[0]-30:centroid[0]+30,centroid[1]-30:centroid[1]+30])
         #     margin = [np.sum(small_image, axis=1)]
-        #     fig2 = plt.imshow(margin, origin='lower', cmap='viridis', norm=LogNorm())
+        #     fig2 = plt.imshow(margin, origin="lower", cmap="viridis", norm=LogNorm())
         #     fig2.axes.get_xaxis().set_visible(False)
         #     fig2.axes.get_yaxis().set_visible(False)
         #     plt.savefig("r_max_margin_1.jpeg", bbox_inches="tight", pad_inches=0, dpi=1000)
@@ -514,7 +514,7 @@ def reduce_raws(raw_list, master_dark_frame, master_flat_frame, dir):
 def get_zero_points(input_airmass):
 
     airmasses = np.array([1.02, 1.15, 1.70])
-    standard_mags = {"r":9.332, "g":9.872, "u":11.44}
+    bd62_standard_mags = {"r":9.332, "g":9.872, "u":11.44}
 
     for band in ["r","g","u"]:
         counts_and_errs = np.loadtxt("standard_stars.csv")
@@ -526,9 +526,9 @@ def get_zero_points(input_airmass):
 
         zero_point = gradient * input_airmass + intercept
 
-        if band == "r": zpr= zero_point
-        elif band == "g": zpg, zpg_err = zero_point
-        elif band == "u": zpu, zpu_err = zero_point
+        if band == "r": zpr, zpr_err = zero_point, zero_point_err
+        elif band == "g": zpg, zpg_err = zero_point, zero_point_err
+        elif band == "u": zpu, zpu_err = zero_point, zero_point_err
 
     return(zpr, zpg, zpu)
 
@@ -566,7 +566,7 @@ def write_cat(r_mag, g_mag, u_mag, filename):
     """
     Method for creating a new catalog file from an ndarray.
 
-    Takes an ndarray and writes it out to a new catalog file with a '.cat'
+    Takes an ndarray and writes it out to a new catalog file with a ".cat"
     extension. Creates a header for this file with the indexes included.
 
     Args:
@@ -576,16 +576,16 @@ def write_cat(r_mag, g_mag, u_mag, filename):
     """
     catalog = np.stack((r_mag, g_mag, u_mag),axis=1)
     #: str: New header text for the output file.
-    header_txt = '\n'.join(['[0] : NUMBER',
-                            '[1] : ALPHAPEAK_J2000',
-                            '[2] : DELTAPEAK_J2000',
-                            '[3] : FLUX_APER_G',
-                            '[4] : FLUXERR_APER_G',
-                            '[5] : FLUX_APER_R',
-                            '[6] : FLUXERR_APER_R',
-                            '[7] : FLUX_APER_U',
-                            '[8] : FLUXERR_APER_U'])
-    np.savetxt('cat/{}.cat'.format(filename), catalog, header=header_txt)
+    header_txt = "\n".join(["[0] : NUMBER",
+                            "[1] : ALPHAPEAK_J2000",
+                            "[2] : DELTAPEAK_J2000",
+                            "[3] : FLUX_APER_G",
+                            "[4] : FLUXERR_APER_G",
+                            "[5] : FLUX_APER_R",
+                            "[6] : FLUXERR_APER_R",
+                            "[7] : FLUX_APER_U",
+                            "[8] : FLUXERR_APER_U"])
+    np.savetxt("cat/{}.cat".format(filename), catalog, header=header_txt)
 
 def polynomial(x, coeffs):
     """
@@ -657,7 +657,7 @@ def cardelli_const(not_gamma):
     return(const)
 
 def get_cardelli_slope(c_constants):
-    return((c_constants['u']-c_constants['g'])/(c_constants['g']-c_constants['r']))
+    return((c_constants["u"]-c_constants["g"])/(c_constants["g"]-c_constants["r"]))
 
 def plot_diagram(plts, **kwargs):
     """
@@ -677,15 +677,15 @@ def plot_diagram(plts, **kwargs):
         ax.plot(plot[0], plot[1], plot[2], markersize=0.75)
         plt_names.append(plt_name)
     ax.set(
-           xlabel=kwargs.get('x_label'),
-           ylabel=kwargs.get('y_label'),
-           title=kwargs.get('sup_title'),
+           xlabel=kwargs.get("x_label"),
+           ylabel=kwargs.get("y_label"),
+           title=kwargs.get("sup_title"),
            #: Invert the y axis for the plot.
            ylim=ax.get_ylim()[::-1]
           )
-    if kwargs.get('legend')==True:
+    if kwargs.get("legend")==True:
         ax.legend(plt_names)
     plt.draw()
     plt.show()
-    if kwargs.get('filename')!=None:
-        fig.savefig('plots/{}.jpeg'.format(kwargs.get('filename')), dpi=1000)
+    if kwargs.get("filename")!=None:
+        fig.savefig("plots/{}.jpeg".format(kwargs.get("filename")), dpi=1000)

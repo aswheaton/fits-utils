@@ -11,7 +11,7 @@ def main():
     r_mag, r_err, g_mag, g_err, u_mag, u_err = load_cat("cat/ugr.cat", zpr, zpg, zpu)
     # error = (g_err**2 + r_err**2 + u_err**2)**0.5
 
-    pleiades_data = np.loadtxt('pleiades/pleiades_johnson.txt')
+    pleiades_data = np.loadtxt("pleiades/pleiades_johnson.txt")
     pleiades_data = correct_pleiades(pleiades_data)
     pleiades_coeffs = np.flip(np.polyfit(pleiades_data[:,0], pleiades_data[:,1], 4))
 
@@ -23,9 +23,9 @@ def main():
     ug_excess_err = u_err + g_err
 
     # Calculate the slope of the reddening vector according to Cardelli et al.
-    cardelli_consts = {'r' : cardelli_const(r_lambda),
-                       'g' : cardelli_const(g_lambda),
-                       'u' : cardelli_const(u_lambda)
+    cardelli_consts = {"r" : cardelli_const(r_lambda),
+                       "g" : cardelli_const(g_lambda),
+                       "u" : cardelli_const(u_lambda)
                       }
     cardelli_slope = get_cardelli_slope(cardelli_consts)
     # 2d Array containing the various reddening vector magnitudes, x and y
@@ -54,9 +54,9 @@ def main():
     u_abs = best_red_vec_y + g_abs
     r_abs = g_abs - best_red_vec_x
 
-    v_abs_g = g_abs / cardelli_consts['g']
-    v_abs_u = u_abs / cardelli_consts['u']
-    v_abs_r = r_abs / cardelli_consts['r']
+    v_abs_g = g_abs / cardelli_consts["g"]
+    v_abs_u = u_abs / cardelli_consts["u"]
+    v_abs_r = r_abs / cardelli_consts["r"]
 
     print("Cardelli slope: {}\nMagnitide: {}\nx-comp: {}\ny-comp: {}\nChi-Squ: {}".format(cardelli_slope, best_red_vec_mag, best_red_vec_x, best_red_vec_y, chi_squ_min))
     print("A_g = {}\nA_u = {}\nA_r = {}".format(g_abs,u_abs,r_abs))
@@ -77,7 +77,7 @@ def main():
     dict["M52 Uncorrected"] = (gr_excess,ug_excess,"o")
     dict["M52 De-reddened"] = (de_reddened_gr_excess,de_reddened_ug_excess,"o")
     value_range = np.linspace(-1.0, 1.0, 1000)
-    dict["Pleiades Fit"] = (value_range, polynomial(value_range, pleiades_coeffs), '-')
+    dict["Pleiades Fit"] = (value_range, polynomial(value_range, pleiades_coeffs), "-")
     plot_diagram(dict, x_label="Colour:(g-r)", y_label="Colour:(u-g)",
                  sup_title="M52\nColour-Colour Diagram",
                  legend=True, filename="M52_Colour-Colour_Diagram"
