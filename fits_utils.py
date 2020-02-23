@@ -536,9 +536,11 @@ def correct_pleiades(p_data):
     # Convert colour excess from Johnson U-B, B-V to Sloan u-g, g-r.
     p_data[:,0] = 1.02 * p_data[:,0] - 0.22
     p_data[:,1] = 1.28 * p_data[:,1] + 1.13
+    p_data[:,2] = p_data[:,2] - 0.46 * p_data[:,0] + 0.11
     # De-redden the converted data using transformations from NED.
     p_data[:,0] = p_data[:,0] - 1.009 + 0.787
     p_data[:,1] = p_data[:,1] - 0.787 + 0.544
+    p_data[:,2] = p_data[:,2] - 0.544
     return(p_data)
 
 def get_mag(flux, flux_error, zero_point):
@@ -658,6 +660,9 @@ def cardelli_const(not_gamma):
 
 def get_cardelli_slope(c_constants):
     return((c_constants["u"]-c_constants["g"])/(c_constants["g"]-c_constants["r"]))
+
+def get_spectral_types(sources):
+    pass
 
 def plot_diagram(plts, **kwargs):
     """
