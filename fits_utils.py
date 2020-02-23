@@ -514,7 +514,7 @@ def reduce_raws(raw_list, master_dark_frame, master_flat_frame, dir):
 def get_zero_points(input_airmass):
 
     # bd62_standard_mags = {"r":9.332, "g":9.872, "u":11.44}
-    # bd25_standard_mags = {"r":9.929, "g":9.432, "u":9.023}
+    # bd25_standard_mags = {"r":9.929, "g":9.450, "u":9.023}
 
     for band in ["r","g","u"]:
         counts_and_errs = np.loadtxt("standard_stars/standard_stars_{}.csv".format(band))
@@ -617,7 +617,7 @@ def get_chi_squ(red_x, red_y, hyp_x, hyp_y, func, coeffs, error):
     that returns the predicted predicted values.
     """
     # chi_squ_tot = np.sum((get_r(red_x, red_y, hyp_x, hyp_y, func, coeffs))**2 / error**2)
-    chi_squ_tot = np.sum(((func(red_x, coeffs) - hyp_y) / error)**2)
+    chi_squ_tot = np.sum(((hyp_y - func(hyp_x, coeffs)) / error)**2)
     return(chi_squ_tot)
 
 def minimiser(array):
