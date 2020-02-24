@@ -525,7 +525,7 @@ def get_zero_points(input_airmass):
         gradient = np.sum((airmasses-np.mean(airmasses))*(zero_points-np.mean(zero_points))) / np.sum((airmasses-np.mean(airmasses))**2)
         intercept = np.mean(zero_points) - gradient * np.mean(airmasses)
         zero_point = gradient * input_airmass + intercept
-
+        print('{} : A = {}X + {}'.format(band,gradient,intercept))
         if band == "r": zpr = zero_point
         elif band == "g": zpg = zero_point
         elif band == "u": zpu = zero_point
