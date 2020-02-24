@@ -530,12 +530,31 @@ def get_zero_points(input_airmass):
         elif band == "g": zpg = zero_point
         elif band == "u": zpu = zero_point
 
+        # plt.plot(airmasses, zero_points, 'o')
+        # plt.plot(airmasses, gradient*airmasses+intercept, '-')
+        # plt.title('Zero Point vs Airmass ({}-band)'.format(band))
+        # plt.show()
+
     return(zpr, zpg, zpu)
 
 def correct_pleiades(p_data):
+    """
+    Converts from Johnson/Cousins system to SDSS system, using transformations
+    from Jester et al. (2005): https://sdss3.org/dr8/algorithms/sdssUBVRITransform.php
+
+    Also de-reddens pleiades data using literature values of absorption from NEDS:
+    http://ned.ipac.caltech.edu/cgi-bin/nph-objsearch?objname=MESSIER%2045&extend=no&out_csys=Equatorial&out_equinox=J2000.0&obj_sort=RA+or+Longitude&of=pre_text&zv_breaker=30000.0&list_limit=5&img_stamp=YES
+
+    [0] : g-r
+    [1] : u-g
+    [2] : r
+    """
     # Convert colour excess from Johnson U-B, B-V to Sloan u-g, g-r.
+    #: B-V --> g-r
     p_data[:,0] = 1.02 * p_data[:,0] - 0.22
+    #: U-B --> u-g
     p_data[:,1] = 1.28 * p_data[:,1] + 1.13
+    #: V --> r
     p_data[:,2] = p_data[:,2] - 0.46 * p_data[:,0] + 0.11
     # De-redden the converted data using transformations from NED.
     p_data[:,0] = p_data[:,0] - 1.009 + 0.787
@@ -613,13 +632,14 @@ def get_r(red_x, red_y, hyp_x, hyp_y, func, coeffs):
     r = ((hyp_x-x_int)**2 + (hyp_y-y_int)**2)**0.5
     return(r)
 
-def get_chi_squ(red_x, red_y, hyp_x, hyp_y, func, coeffs, error):
+def get_chi_squ(x, y, func, coeffs, error):
     """
     Returns the chi-squared value for a given x,y dataset and a function handle
     that returns the predicted predicted values.
     """
-    # chi_squ_tot = np.sum((get_r(red_x, red_y, hyp_x, hyp_y, func, coeffs))**2 / error**2)
-    chi_squ_tot = np.sum(((hyp_y - func(hyp_x, coeffs)) / error)**2)
+    chi_squ_tot = np.sum(((y - func(x, coeffs)) / error)**2)
+    # expected_y = func(x, coeffs)
+    # chi_squ_tot = np.sum(((y - expected_y)**2)/expected_y)
     return(chi_squ_tot)
 
 def minimiser(array):
