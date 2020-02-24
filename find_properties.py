@@ -59,12 +59,19 @@ def get_distance_2(g_r,r,param_pl):
     return(distance)
 
 
-def get_distance(param,param_pl,color_gr,g_r_pl):
+def get_distance(param,param_pl,color_gr,g_r_pl,cov_pl,cov_m52):
     start= np.amin(color_gr)
     stop=np.amax(color_gr)
     shift_list=[]
+    pl_1=((g_r_pl**4)*err_a)**2
+    pl_2=((g_r_pl**3)*err_b)**2
+    pl_3=((g_r_pl**2)*err_c)**2
+    pl_4=((g_r_pl)*err_d)**2
+    pl_5=(err_e)**2
+    pl_6=([4*param_pl[0]*(g_r_pl**3) + 3*param_pl[1]*(g_r_pl)**2 + 2*param_pl[2]*(g_r_pl) + param_pl[3]]*err_g_r_pl)**2
     for x in np.linspace(start,stop,num=1000):
         y_pl=polynomial(x,*param_pl)
+        y_pl_err=np.sqrt(pl_1 +pl_2 +pl_3 +pl_4 +pl_5 +pl_6)        
         y_m52= polynomial(x,*param)
         y_diff=abs(y_pl -y_m52)
         shift_list.append(y_diff)
@@ -88,9 +95,9 @@ def main():
     r_pl_abs= get_abs_mag(r_pl)
     cor_g_r_pl,cor_r_abs_pl= remove_outlie(g_r_pl,r_pl_abs)
     cor_g_r_m52,cor_r_m52= remove_outlie(color_gr,r_mag)
-    param_pl= get_fit(polynomial,cor_g_r_pl,cor_r_abs_pl)
-    param_m52= get_fit(polynomial,cor_g_r_m52,cor_r_m52)
-    dist_pc=get_distance(param_m52,param_pl,cor_g_r_m52,cor_g_r_pl)
+    param_pl,cov_pl= get_fit(polynomial,cor_g_r_pl,cor_r_abs_pl)
+    param_m52,cov_m52= get_fit(polynomial,cor_g_r_m52,cor_r_m52)
+    dist_pc=get_distance(param_m52,param_pl,cor_g_r_m52,cor_g_r_pl,cov_pl,cov_m52)
     #dist_pc=get_distance_2(cor_g_r_m52,cor_r_m52,param_pl)
     dist_rounded=np.round(dist_pc,decimals=3)
     print("The distance to Messier 52 is: " +str(dist_rounded)+" parsecs.")
