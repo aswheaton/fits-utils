@@ -128,7 +128,7 @@ def load_fits(**kwargs):
             elif "end" in filename:
                 pass
             elif target_id in filename and band in filename:
-                int_time = filename.split("_")[2][:-1]
+                int_time = int(filename.split("_")[2][:-1])
                 print(target_id, band, int_time, " matched ", filename)
                 with fits.open(root+filename) as hdul:
                     new_image = {}
@@ -459,7 +459,7 @@ def stack(aligned_image_stack, **kwargs):
         total_int_time = np.zeros((rows, cols))
         for image in aligned_image_stack:
             # Extract integration time from header and stack the image.
-            total_int_time += int(image["int_time"])
+            total_int_time += image["int_time"]
             stacked_image_data += image["data"]
         # Correct the image data for exposure time of each pixel.
         exposure_corrected_data = np.floor(stacked_image_data / total_int_time)
