@@ -8,7 +8,7 @@ def main():
     # Zero points from zero-point-calculator.
     zpr, zpg, zpu = get_zero_points(1.00) # Rory's ZP: 30.236, 29.719, 27.075
     print(zpr, zpg, zpu)
-    zpr, zpg, zpu = 22.9, 23, 21
+    # zpr, zpg, zpu = 22.9, 23, 21
     # Get the zero point corrected catalogue and error.
     r_mag, r_err, g_mag, g_err, u_mag, u_err = load_cat("cat/ugr.cat", zpr, zpg, zpu)
     # error = (g_err**2 + r_err**2 + u_err**2)**0.5
@@ -101,10 +101,10 @@ def main():
     # Calculate the de-reddened colour excess.
     de_reddened_gr_excess = de_reddened_g_mag - de_reddened_r_mag
     # Plot the de-reddened diagram.
-    dict = {"M52 r vs. g-r":(de_reddened_gr_excess,de_reddened_r_mag,'o'),
-            "Pleiades r vs. g-r":(pleiades_data[:,0], pleiades_data[:,2], 'o')
+    dict = {"M52 g vs. g-r":(de_reddened_gr_excess,de_reddened_g_mag,'o'),
+            "Pleiades g vs. g-r":(reduced_data[:,0], reduced_data[:,2]+reduced_data[:,0], 'o')
            }
-    plot_diagram(dict, x_label="Colour:(g-r)", y_label="Magnitude: r",
+    plot_diagram(dict, x_label="Colour:(g-r)", y_label="Magnitude: g",
                  sup_title="M52\nColour-Colour Diagram",
                  legend=True, filename="M52_Colour-Colour_Diagram"
                 )
