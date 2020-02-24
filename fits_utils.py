@@ -30,18 +30,19 @@ import configparser
 
 from matplotlib.colors import LogNorm
 from scipy.stats import mode
+from scipy.ndimage import gaussian_filter
 from pathlib import Path
 from astropy.io import fits
 from os import walk
 
 def gen_config():
     config = configparser.ConfigParser()
-    config['TELESCOPE'] = {'Size': '15'}
-    config['DATA SETTINGS'] = {'Standard Star A': 'bd62',
-                               'Standard Star B': 'bd25',
-                               'Target ID': 'm52',
-                               'Bands': 'g, r, u'}
-    with open('config.ini', 'w') as configfile:
+    config["TELESCOPE"] = {"Size": "15"}
+    config["DATA SETTINGS"] = {"Standard Star A": "bd62",
+                               "Standard Star B": "bd25",
+                               "Target ID": "m52",
+                               "Bands": "g, r, u"}
+    with open("config.ini", "w") as configfile:
         config.write(configfile)
 
 def get_lists(dir):
@@ -237,7 +238,8 @@ def max_value_centroid(image_data, **kwargs):
     return((x_max[0], y_max[0]))
 
 def custom_roll(array, axis=0):
-    """Getting sum of nearest neighbours for each value in an array.
+    """
+    Getting sum of nearest neighbours for each value in an array.
 
     For each value in an ndarray, sums the nearest neighbours around that
     position for one axis. Pads array with zeroes, aligns array with dstack and
@@ -246,7 +248,6 @@ def custom_roll(array, axis=0):
     Args:
         array (ndarray): Array to be passed over.
         axis (int): Specific axis to be rolled over. Defaults to 0.
-
     """
     no = 3
     array = array.T if axis==1 else array
@@ -281,9 +282,9 @@ def create_mask(image_data, **kwargs):
         mask[:,-size:] = 1
     return(mask)
 
-def smooth(image_data, size, **kwargs):
-    from scipy.ndimage import gaussian_filter
-    smoothed_image = gaussian_filter(image_data, size)
+def smooth(image_data, **kwargs):
+    sigma = kwargs.get("sigma")
+    smoothed_image = gaussian_filter(image_data, sigma)
     return(smoothed_image)
 
 def weighted_mean_2D(cutout,**kwargs):
@@ -330,26 +331,13 @@ def hybrid_centroid(image_data, **kwargs):
         x_max, y_max = max_value_centroid(masked_data)
     # Attempt to smooth out pixels which may confuse the initial guess.
     elif kwargs.get("filter") == "gaussian":
-        x_max, y_max = max_value_centroid(smooth(image_data, size))
+        x_max, y_max = max_value_centroid(smooth(image_data, sigma=0.25*size))
     # A hybrid method for aligning very faint images.
     elif kwargs.get("filter") == "combined":
-        smoothed_data = smooth(image_data, size)
+        smoothed_data = smooth(image_data, sigma=0.25*size)
         mask_array = create_mask(smoothed_data, condition="neighbors", border=100)
         masked_data = np.ma.array(smoothed_data, mask=mask_array)
         x_max, y_max = max_value_centroid(masked_data)
-        if x_max == 50:
-            # print("\nimage_data: ",image_data.shape)
-            # print("smooth_data: ", smoothed_data.shape)
-            # print("masked_data: ", masked_data.shape)
-            # print("initial guess: ", x_max, y_max)
-            plt.imshow(image_data, norm=LogNorm())
-            plt.show()
-            plt.imshow(smoothed_data, norm=LogNorm())
-            plt.show()
-            plt.imshow(mask_array, norm=LogNorm())
-            plt.show()
-            plt.imshow(masked_data, norm=LogNorm())
-            plt.show()
     # Get the maximum value of the cutout as an initial guess.
     else:
         x_max, y_max = max_value_centroid(image_data)
@@ -387,11 +375,37 @@ def align(images, **kwargs):
     for image in images:
         counter += 1
         print("---Finding Centre {} of {}".format(counter, len(images)), end="\r")
-        centroid = hybrid_centroid(image["data"], size=50, filter=filter)
+        centroid = max_value_centroid(image["data"], size=50, filter=filter)
         x_centroids.append(centroid[0])
         y_centroids.append(centroid[1])
         image["XCENT"] = centroid[0]
         image["YCENT"] = centroid[1]
+
+        # if counter == 1:
+        #
+        #     fig1 = plt.imshow(smooth(image["data"], sigma=3), origin="lower", cmap="viridis", norm=LogNorm())
+        #     plt.scatter(centroid[1], centroid[0], s=1, c="red", marker="o")
+        #     import matplotlib.patches as patches
+        #     rect = patches.Rectangle((centroid[1]-30,centroid[0]-30),60,60,linewidth=1,edgecolor="r",facecolor="none")
+        #     fig1.axes.add_patch(rect)
+        #     fig1.axes.get_xaxis().set_visible(False)
+        #     fig1.axes.get_yaxis().set_visible(False)
+        #     plt.savefig("r_hybrid_centroid_full.jpeg", bbox_inches="tight", pad_inches=0, dpi=1000)
+        #
+        #     small_image = np.array(image["data"][centroid[0]-30:centroid[0]+30,centroid[1]-30:centroid[1]+30])
+        #     fig2 = plt.imshow(smooth(small_image, sigma=3), origin="lower", cmap="viridis", norm=LogNorm())
+        #     plt.scatter(30,30, s=1, c="red", marker="o")
+        #     fig2.axes.get_xaxis().set_visible(False)
+        #     fig2.axes.get_yaxis().set_visible(False)
+        #     plt.savefig("r_hybrid_centroid_small.jpeg", bbox_inches="tight", pad_inches=0, dpi=1000)
+        #
+        #     small_image = np.array(image["data"][centroid[0]-30:centroid[0]+30,centroid[1]-30:centroid[1]+30])
+        #     margin = [np.sum(small_image, axis=1)]
+        #     fig2 = plt.imshow(margin, origin="lower", cmap="viridis", norm=LogNorm())
+        #     fig2.axes.get_xaxis().set_visible(False)
+        #     fig2.axes.get_yaxis().set_visible(False)
+        #     plt.savefig("r_max_margin_1.jpeg", bbox_inches="tight", pad_inches=0, dpi=1000)
+
     print()
     max_pos = (max(x_centroids), max(y_centroids))
     min_pos = (min(x_centroids), min(y_centroids))
@@ -465,8 +479,13 @@ def rgb(image_r, image_g, image_b):
     """
     from astropy.visualization import make_lupton_rgb
     rgb_image = make_lupton_rgb(image_r, image_g, image_b, Q=10, stretch=1000.)
-    plt.imshow(rgb_image)
+    plt.imshow(rgb_image, norm=LogNorm())
     plt.show()
+    plt.axis("off")
+    fig = plt.imshow(rgb_image, norm=LogNorm())
+    fig.axes.get_xaxis().set_visible(False)
+    fig.axes.get_yaxis().set_visible(False)
+    plt.savefig("false_colour.jpeg", bbox_inches="tight", pad_inches=0, dpi=1000)
 
 def reduce_raws(raw_list, master_dark_frame, master_flat_frame, dir):
     """
@@ -492,11 +511,206 @@ def reduce_raws(raw_list, master_dark_frame, master_flat_frame, dir):
     print("\nDone!")
     return science_list
 
-def get_mag(flux, flux_err, zpoint):
-    mag = zpoint - (2.5*np.log(flux)/np.log(10))
-    mag_err = (-2.5/np.log(10))*(flux_err/flux)
-    return mag, mag_err
+def get_zero_points(input_airmass):
 
-def minimiser(lambda_fit):
-    best_lambda = float(lambda_fit[np.where(lambda_fit[:,1]==np.amin(lambda_fit[:,1]))[0],0])
-    return(best_lambda)
+    # bd62_standard_mags = {"r":9.332, "g":9.872, "u":11.44}
+    # bd25_standard_mags = {"r":9.929, "g":9.450, "u":9.023}
+
+    for band in ["r","g","u"]:
+        counts_and_errs = np.loadtxt("standard_stars/standard_stars_{}.csv".format(band))
+        airmasses = np.array(counts_and_errs[:,3])
+        zero_points = counts_and_errs[:,0] + 2.5 * np.log10(counts_and_errs[:,1])
+        zero_point_errs = counts_and_errs[:,2] * 2.5 / counts_and_errs[:,1] / np.log(10)
+
+        gradient = np.sum((airmasses-np.mean(airmasses))*(zero_points-np.mean(zero_points))) / np.sum((airmasses-np.mean(airmasses))**2)
+        intercept = np.mean(zero_points) - gradient * np.mean(airmasses)
+        zero_point = gradient * input_airmass + intercept
+
+        if band == "r": zpr = zero_point
+        elif band == "g": zpg = zero_point
+        elif band == "u": zpu = zero_point
+
+        # plt.plot(airmasses, zero_points, 'o')
+        # plt.plot(airmasses, gradient*airmasses+intercept, '-')
+        # plt.title('Zero Point vs Airmass ({}-band)'.format(band))
+        # plt.show()
+
+    return(zpr, zpg, zpu)
+
+def correct_pleiades(p_data):
+    """
+    Converts from Johnson/Cousins system to SDSS system, using transformations
+    from Jester et al. (2005): https://sdss3.org/dr8/algorithms/sdssUBVRITransform.php
+
+    Also de-reddens pleiades data using literature values of absorption from NEDS:
+    http://ned.ipac.caltech.edu/cgi-bin/nph-objsearch?objname=MESSIER%2045&extend=no&out_csys=Equatorial&out_equinox=J2000.0&obj_sort=RA+or+Longitude&of=pre_text&zv_breaker=30000.0&list_limit=5&img_stamp=YES
+
+    [0] : g-r
+    [1] : u-g
+    [2] : r
+    """
+    # Convert colour excess from Johnson U-B, B-V to Sloan u-g, g-r.
+    #: B-V --> g-r
+    p_data[:,0] = 1.02 * p_data[:,0] - 0.22
+    #: U-B --> u-g
+    p_data[:,1] = 1.28 * p_data[:,1] + 1.13
+    #: V --> r
+    p_data[:,2] = p_data[:,2] - 0.46 * p_data[:,0] + 0.11
+    # De-redden the converted data using transformations from NED.
+    p_data[:,0] = p_data[:,0] - 1.009 + 0.787
+    p_data[:,1] = p_data[:,1] - 0.787 + 0.544
+    p_data[:,2] = p_data[:,2] - 0.544
+    return(p_data)
+
+def get_mag(flux, flux_error, zero_point):
+    """
+    Recieves the flux of an object, the error on that flux, and an instrumental
+    zero point and returns a zero point corrected magnitude and magnitude error
+    for the object.
+    """
+    mag = -2.5 * np.log10(flux) + zero_point
+    mag_err = (-2.5/flux/np.log(10)) * flux_error
+    return(mag, mag_err)
+
+def load_cat(filename, zpr, zpg, zpu):
+    """
+    Loads in a catalogue output by Source Extractor and returns a numpy arrays
+    of calatogue fluxes and their errors after zero point correction.
+    """
+    catalog = np.loadtxt(filename)
+    r_mag, r_err = get_mag(catalog[:,5], catalog[:,6], zpr)
+    g_mag, g_err = get_mag(catalog[:,3], catalog[:,4], zpg)
+    u_mag, u_err = get_mag(catalog[:,7], catalog[:,8], zpu)
+    return(r_mag, r_err, g_mag, g_err, u_mag, u_err)
+
+def write_cat(r_mag, g_mag, u_mag, filename):
+    """
+    Method for creating a new catalog file from an ndarray.
+
+    Takes an ndarray and writes it out to a new catalog file with a ".cat"
+    extension. Creates a header for this file with the indexes included.
+
+    Args:
+        catalog (ndarray): Merged catalog data.
+        filename (str): Filename of the new catalog. Do not include the
+            extension, this is added automatically.
+    """
+    catalog = np.stack((r_mag, g_mag, u_mag),axis=1)
+    #: str: New header text for the output file.
+    header_txt = "\n".join(["[0] : NUMBER",
+                            "[1] : ALPHAPEAK_J2000",
+                            "[2] : DELTAPEAK_J2000",
+                            "[3] : FLUX_APER_G",
+                            "[4] : FLUXERR_APER_G",
+                            "[5] : FLUX_APER_R",
+                            "[6] : FLUXERR_APER_R",
+                            "[7] : FLUX_APER_U",
+                            "[8] : FLUXERR_APER_U"])
+    np.savetxt("cat/{}.cat".format(filename), catalog, header=header_txt)
+
+def polynomial(x, coeffs):
+    """
+    Returns the corresponding y value for x, given the coefficients for an
+    nth-order polynomial as a list descending in order.
+    """
+    # Hard code for 4th order, better to use general case.
+    # y = A*x**4 + B*x**3 + C*x**2 + D*x**1 + E*x**0)
+    y = 0.0
+    for n in range(len(coeffs)):
+        y += coeffs[n] * x ** n
+    return(y)
+
+def get_r(red_x, red_y, hyp_x, hyp_y, func, coeffs):
+    # Slope of the DE-reddening vector.
+    slope = (hyp_y - red_y) / (hyp_x - red_x)
+    x_vals = np.linspace(red_x, hyp_x, 1000)
+    y_val_vec = red_y - slope * (red_x - x_vals)
+    y_val_cur = polynomial(x_vals, coeffs)
+    y_diffs = abs(y_val_vec - y_val_cur)
+    index = np.where(y_diffs == np.amin(y_diffs))[0]
+    x_int, y_int = x_vals[index], y_val_cur[index]
+    r = ((hyp_x-x_int)**2 + (hyp_y-y_int)**2)**0.5
+    return(r)
+
+def get_chi_squ(x, y, func, coeffs, error):
+    """
+    Returns the chi-squared value for a given x,y dataset and a function handle
+    that returns the predicted predicted values.
+    """
+    chi_squ_tot = np.sum(((y - func(x, coeffs)) / error)**2)
+    # expected_y = func(x, coeffs)
+    # chi_squ_tot = np.sum(((y - expected_y)**2)/expected_y)
+    return(chi_squ_tot)
+
+def minimiser(array):
+    """
+    Returns the index of the minimum value in a 1d-array.
+    """
+    index = np.where(array==np.amin(array))[0]
+    return(index)
+
+def cardelli_a(x):
+    y = x - 1.82
+    spam = (1 + 0.17699 * y
+            - 0.50447 * y**2
+            -0.02427 * y**3
+            + 0.72085 * y**4
+            + 0.01979 * y**5
+            - 0.77530 * y**6
+            + 0.32999 * y**7
+            )
+    return(spam)
+
+def cardelli_b(x):
+    y = x - 1.82
+    eggs = (1.41338 * y
+            + 2.28305 * y**2
+            + 1.07233 * y**3
+            - 5.38434 * y**4
+            - 0.62251 * y**5
+            + 5.30260 * y**6
+            - 2.09002 * y**7
+            )
+    return(eggs)
+
+def cardelli_const(not_gamma):
+    R_v = 3.1 # Ratio of selective to total extinction
+    const = cardelli_a(1/not_gamma) + cardelli_b(1/not_gamma) / R_v
+    return(const)
+
+def get_cardelli_slope(c_constants):
+    return((c_constants["u"]-c_constants["g"])/(c_constants["g"]-c_constants["r"]))
+
+def get_spectral_types(sources):
+    pass
+
+def plot_diagram(plts, **kwargs):
+    """
+    Method for plotting a HR diagram. Uses matplotlib to create a HR diagram
+    of the magnitudes/colors. The plot is a simple scatter plot. Saves the
+    plot to the plots output folder.
+
+    Args:
+        plts (dictionary): Multiple plots to be put on the same axis. Key should
+            be the label for the plot. Each tuple should contain: (x values, y
+            values, and the marker type for the plot.)
+    """
+    #: fig, ax objects: New figure and axis created by matplotlib.
+    fig, ax = plt.subplots()
+    plt_names = []
+    for plt_name, plot in plts.items():
+        ax.plot(plot[0], plot[1], plot[2], markersize=0.75)
+        plt_names.append(plt_name)
+    ax.set(
+           xlabel=kwargs.get("x_label"),
+           ylabel=kwargs.get("y_label"),
+           title=kwargs.get("sup_title"),
+           #: Invert the y axis for the plot.
+           ylim=ax.get_ylim()[::-1]
+          )
+    if kwargs.get("legend")==True:
+        ax.legend(plt_names)
+    plt.draw()
+    plt.show()
+    if kwargs.get("filename")!=None:
+        fig.savefig("plots/{}.jpeg".format(kwargs.get("filename")), dpi=1000)
