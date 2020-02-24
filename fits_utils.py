@@ -368,6 +368,8 @@ def align(images, **kwargs):
         aligned_images (list of dict): new frames that have been aligned and can
             be stacked.
     """
+    # Which centroiding function to use.
+    centroid_func = kwargs.get("centroid")
     # Boolean, whether or not to mask images for hot pixels on the detector.
     filter = kwargs.get("filter")
     # Find the centroid of the reference star in each image.
@@ -377,7 +379,7 @@ def align(images, **kwargs):
     for image in images:
         counter += 1
         print("---Finding Centre {} of {}".format(counter, len(images)), end="\r")
-        centroid = max_value_centroid(image["data"], size=50, filter=filter)
+        centroid = centroid_func(image["data"], size=50, filter=filter)
         x_centroids.append(centroid[0])
         y_centroids.append(centroid[1])
         image["XCENT"] = centroid[0]
