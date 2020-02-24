@@ -7,13 +7,17 @@ def main():
     r_lambda, g_lambda, u_lambda = 0.6231, 0.4770, 0.3543
     # Zero points from zero-point-calculator.
     zpr, zpg, zpu = get_zero_points(1.04) # Rory's ZP: 30.236, 29.719, 27.075
+    print(zpr, zpg, zpu)
     # Get the zero point corrected catalogue and error.
     r_mag, r_err, g_mag, g_err, u_mag, u_err = load_cat("cat/ugr.cat", zpr, zpg, zpu)
     # error = (g_err**2 + r_err**2 + u_err**2)**0.5
 
     pleiades_data = np.loadtxt("pleiades/pleiades_johnson.txt")
     pleiades_data = correct_pleiades(pleiades_data)
-    pleiades_coeffs = np.flip(np.polyfit(pleiades_data[:,0], pleiades_data[:,1], 4))
+    index = np.where(pleiades_data[:,0] < 0.5)[0]
+    reduced_data = pleiades_data[index,:]
+    # pleiades_coeffs = np.flip(np.polyfit(pleiades_data[:,0], pleiades_data[:,1], 4),axis=0)
+    pleiades_coeffs = np.flip(np.polyfit(reduced_data[:,0], reduced_data[:,1], 4),axis=0)
 
     # Calculate the colour excess.
     gr_excess = g_mag - r_mag # x-axis variable
@@ -32,15 +36,23 @@ def main():
     # components of reddening vector and the chi-squared value associated with
     # the particular reddening vector magnitude.
     params_and_fit = []
+
+    mp_x = (1/gr_excess.shape[0])*np.sum(gr_excess)
+    mp_y = (1/ug_excess.shape[0])*np.sum(ug_excess)
+    y_cept = mp_y - cardelli_slope*mp_x
+
     # Iterate over reasonable range of values for the reddening vector magnitude.
-    for red_vec_mag in np.linspace(1.0, 3.0, 1000):
+    for red_vec_mag in np.linspace(0.0, 10, 10000):
         red_vec_x = (red_vec_mag**2 / (1 + cardelli_slope**2))**0.5
         red_vec_y = (red_vec_mag**2 / (1 + cardelli_slope**-2))**0.5
+
+        # red_vec_x = red_vec_mag/(cardelli_slope+1)
+        # red_vec_y = (red_vec_mag * cardelli_slope)/(cardelli_slope + 1)
+
         gr_excess_shifted = gr_excess - red_vec_x
         ug_excess_shifted = ug_excess - red_vec_y
-        chi_squ = get_chi_squ(gr_excess, ug_excess, gr_excess_shifted,
-                              ug_excess_shifted, polynomial, pleiades_coeffs,
-                              ug_excess_err
+        chi_squ = get_chi_squ(gr_excess_shifted, ug_excess_shifted, polynomial,
+                              pleiades_coeffs, ug_excess_err
                               )
         params_and_fit.append([red_vec_mag, red_vec_x, red_vec_y, chi_squ])
 
@@ -70,8 +82,10 @@ def main():
     dict = {}
     dict["M52 Uncorrected"] = (gr_excess,ug_excess,"o")
     dict["M52 De-reddened"] = (de_reddened_gr_excess,de_reddened_ug_excess,"o")
-    value_range = np.linspace(-1.0, 1.0, 1000)
+    value_range = np.linspace(-0.8, 1.0, 1000)
+    dict["Pleiades Data"] = (pleiades_data[:,0], pleiades_data[:,1], "o")
     dict["Pleiades Fit"] = (value_range, polynomial(value_range, pleiades_coeffs), "-")
+    dict["Cardelli Slope"] = (value_range, cardelli_slope*value_range + y_cept, "-")
     plot_diagram(dict, x_label="Colour:(g-r)", y_label="Colour:(u-g)",
                  sup_title="M52\nColour-Colour Diagram",
                  legend=True, filename="M52_Colour-Colour_Diagram"
@@ -82,13 +96,13 @@ def main():
     r_mag, r_err = get_mag(catalog[:,5], catalog[:,6], zpr)
     g_mag, g_err = get_mag(catalog[:,3], catalog[:,4], zpg)
     # De-redden the larger catalogue with newly found r_abs and g_abs values.
-    de_reddened_r_mag = r_mag + r_abs
-    de_reddened_g_mag = g_mag + g_abs
+    de_reddened_r_mag = r_mag - r_abs
+    de_reddened_g_mag = g_mag - g_abs
     # Calculate the de-reddened colour excess.
     de_reddened_gr_excess = de_reddened_g_mag - de_reddened_r_mag
     # Plot the de-reddened diagram.
-    dict = {"M52 r' vs. g'-r'":(de_reddened_gr_excess,de_reddened_r_mag,'o'),
-            "Pleiades r' vs. g'-r'":(pleiades_data[:,1], pleiades_data[:,2], 'o')
+    dict = {"M52 r vs. g-r":(de_reddened_gr_excess,de_reddened_r_mag,'o'),
+            "Pleiades r vs. g-r":(pleiades_data[:,0], pleiades_data[:,2], 'o')
            }
     plot_diagram(dict, x_label="Colour:(g'-r')", y_label="Magnitude: r'",
                  sup_title="M52\nColour-Colour Diagram",
