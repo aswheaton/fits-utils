@@ -103,6 +103,9 @@ def main():
     de_reddened_g_mag = g_mag - g_abs
     # Calculate the de-reddened colour excess.
     de_reddened_gr_excess = de_reddened_g_mag - de_reddened_r_mag
+    # Write the corrected catalogue out.
+    de_reddened_gr_r = np.column_stack((de_reddened_gr_excess, de_reddened_r_mag))
+    np.savetxt("cat/de_reddened_gr_r.cat", de_reddened_gr_r)
     # Plot the de-reddened diagram.
     dict = {"M52 r vs. g-r":(de_reddened_gr_excess,de_reddened_r_mag,'o'),
             "Pleiades r vs. g-r":(pleiades_data[:,0], pleiades_data[:,2], 'o')
