@@ -1,10 +1,11 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from fits_utils import *
 from scipy import optimize
 
 zpu=27.075
 zpg=29.719
-zpr=30.236
+zpr= 22.9
 solar_lum= 3.828E+26
 solar_mass= 1.99E+30
 h=6.63E-34
@@ -12,16 +13,9 @@ c=3E+8
 cen_wav_r= 658E-9
 dist_pl_pc=150
 
-def get_mag(flux, flux_err, zpoint):
-    mag = zpoint - (2.5*np.log(flux)/np.log(10))
-    mag_err = (-2.5/np.log(10))*(flux_err/flux)
-    return mag, mag_err
 
-def sys_change(b_v,v):
-    g_r= 1.02*(b_v) -0.22
-    r= v- 0.42*(b_v)+0.11
-    r_abs=r-5*np.log10(15)
-    return(g_r,r_abs)
+def get_abs_mag(app_mag):
+    return(app_mag-5*np.log10(dist_pl_pc/10))
 
 def get_fit(f,x,y):
     param,cov= optimize.curve_fit(f,x,y,p0=None)
@@ -36,9 +30,38 @@ def mag_convert(m,zp):
     flux=counts*energy_photon
     return(flux)
 
+def remove_outlie(g_r,r):
+    index= np.where((g_r<-0.2) & (g_r>-0.7))[0]
+    return(g_r[index],r[index])
+
+def get_distance_2(g_r,r,param_pl):
+    cut_off=np.mean(g_r)
+    index_bin_1= np.where((g_r>np.amin(g_r))&(g_r<cut_off))[0]
+    index_bin_2= np.where((g_r>cut_off)&(g_r<np.amax(g_r)))[0]
+    bin_1_g_r= g_r[index_bin_1]
+    bin_2_g_r= g_r[index_bin_2]
+    bin_1_r=r[index_bin_1]
+    bin_2_r=r[index_bin_2]
+    mean_bin_1_r=np.mean(bin_1_r)
+    mean_bin_2_r=np.mean(bin_2_r)
+    mean_bin_1_g_r=np.mean(bin_1_g_r)
+    mean_bin_2_g_r=np.mean(bin_2_g_r)
+    bin_1_r_pl=polynomial(mean_bin_1_g_r,*param_pl)
+    bin_2_r_pl=polynomial(mean_bin_2_g_r,*param_pl)
+    r_bin_1_diff=abs(bin_1_r_pl-mean_bin_1_r)
+    r_bin_2_diff=abs(bin_2_r_pl- mean_bin_2_r)
+    dist_mod=(r_bin_1_diff+r_bin_2_diff)/2
+    print(dist_mod)
+    exponent=((dist_mod/5)+1)
+    distance= 10**(exponent)
+    err_dist_mod=
+    err_distance=(2**((dist_mod/5)+1)*np.log(10)*(5**(dist_mod/5)))*err_dist_mod
+    return(distance)
+
+
 def get_distance(param,param_pl,color_gr,g_r_pl):
-    start= np.min(color_gr)
-    stop=0.215
+    start= np.amin(color_gr)
+    stop=np.amax(color_gr)
     shift_list=[]
     for x in np.linspace(start,stop,num=1000):
         y_pl=polynomial(x,*param_pl)
@@ -46,45 +69,45 @@ def get_distance(param,param_pl,color_gr,g_r_pl):
         y_diff=abs(y_pl -y_m52)
         shift_list.append(y_diff)
 
-    dist_mod= np.mean(shift_list)
-    #print(dist_mod)
+    dist_mod=np.mean(shift_list)
+    print(dist_mod)
+    err_dist_mod=
+    err_distance=(2**((dist_mod/5)+1)*np.log(10)*(5**(dist_mod/5)))*err_dist_mod
     exponent=((dist_mod/5)+1)
     distance= 10**(exponent)
     return(distance)
 
 def main():
-    data=np.loadtxt("pl_data_UBV.txt",usecols=[2,3])
-    catalog = np.loadtxt('combined.cat')
-    r_flux= catalog[:,5]
-    g_mag, g_err = get_mag(catalog[:,3], catalog[:,4], zpg)
-    r_mag, r_err = get_mag(catalog[:,5], catalog[:,6], zpr)
-    u_mag, u_err = get_mag(catalog[:,7], catalog[:,8], zpu)
-    color_gr = g_mag - r_mag
-    b_v= data[:,1]
-    v= data[:,0]
-    index= np.where(b_v<0.215)[0]
-    b_v_cut=b_v[index]
-    v_cut=v[index]
-    g_r_pl, r_pl= sys_change(b_v_cut,v_cut)
-    param_pl= get_fit(polynomial,g_r_pl,r_pl)
-    param_m52= get_fit(polynomial,color_gr,r_mag)
-    dist_pc=get_distance(param_m52,param_pl,color_gr,g_r_pl)
+    data=np.loadtxt("pleiades/pleiades_johnson.txt")
+    data=correct_pleiades(data)
+    catalog = np.loadtxt('cat/de_reddened_gr_r.cat')
+    r_mag = catalog[:,1]
+    color_gr = catalog[:,0]
+    g_r_pl=data[:,0]
+    r_pl=data[:,2]
+    r_pl_abs= get_abs_mag(r_pl)
+    cor_g_r_pl,cor_r_abs_pl= remove_outlie(g_r_pl,r_pl_abs)
+    cor_g_r_m52,cor_r_m52= remove_outlie(color_gr,r_mag)
+    param_pl= get_fit(polynomial,cor_g_r_pl,cor_r_abs_pl)
+    param_m52= get_fit(polynomial,cor_g_r_m52,cor_r_m52)
+    dist_pc=get_distance(param_m52,param_pl,cor_g_r_m52,cor_g_r_pl)
+    #dist_pc=get_distance_2(cor_g_r_m52,cor_r_m52,param_pl)
     dist_rounded=np.round(dist_pc,decimals=3)
     print("The distance to Messier 52 is: " +str(dist_rounded)+" parsecs.")
     distance=(3.08567782E+16)*dist_pc
-    r_min=np.min(r_mag)
+    r_min=np.min(cor_r_m52)
     r_min_flux=mag_convert(r_min,zpr)
     r_min_lum= r_min_flux*(4*np.pi*(distance**2))
     r_min_mass= (r_min_lum/solar_lum)**(1/3.5)
     age= (r_min_mass**-2.5)* (10**10)
     age_mil= age/1000000
-    print("The age of Messier 52 is: "+str(age)+" Million years old.")
+    print("The age of Messier 52 is: "+str(age_mil)+" Million years old.")
 
 
-    x=np.linspace(-0.7,0.1,1000)
+    x=np.linspace(np.amin(cor_g_r_m52),np.amax(cor_g_r_m52),1000)
 
-    plt.plot(g_r_pl,r_pl,'o',label="Pleiades literature")
-    plt.plot(color_gr,r_mag,'o',label="M52 Data(Uncorrected)")
+    plt.plot(cor_g_r_pl,cor_r_abs_pl,'o',label="Pleiades literature")
+    plt.plot(cor_g_r_m52,cor_r_m52,'o',label="M52 Data(Uncorrected)")
     plt.plot(x,polynomial(x,*param_pl),'-',label="Pleiades")
     plt.plot(x,polynomial(x,*param_m52),'-',label="M52")
     plt.gca().invert_yaxis()
