@@ -76,6 +76,9 @@ def main():
     de_reddened_gr_excess = gr_excess - best_red_vec_x
     de_reddened_ug_excess = ug_excess - best_red_vec_y
 
+    new_catalogue = np.column_stack((u_mag-u_abs, g_mag-g_abs, r_mag-r_abs))
+    np.savetxt("cat/de_reddened_ugr.cat", new_catalogue)
+
     # Plot chi-sqaured as a function of reddening vector magnitude and the
     # reddened data alongside the de-reddened data and the Pleiades data.
     plt.plot(params_and_fit[:,0], params_and_fit[:,3])
