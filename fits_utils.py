@@ -123,7 +123,9 @@ def load_fits(**kwargs):
         for filename in files:
             if "left" in filename:
                 pass
-            elif "attempt" in filename:
+            elif "at" in filename:
+                pass
+            elif "end" in filename:
                 pass
             elif target_id in filename and band in filename:
                 int_time = filename.split("_")[2][:-1]
@@ -455,7 +457,7 @@ def stack(aligned_image_stack, **kwargs):
         total_int_time = np.zeros((rows, cols))
         for image in aligned_image_stack:
             # Extract integration time from header and stack the image.
-            total_int_time += int(image["int_time"][:-1])
+            total_int_time += int(image["int_time"])
             stacked_image_data += image["data"]
         # Correct the image data for exposure time of each pixel.
         exposure_corrected_data = np.floor(stacked_image_data / total_int_time)
@@ -525,7 +527,7 @@ def get_zero_points(input_airmass):
         gradient = np.sum((airmasses-np.mean(airmasses))*(zero_points-np.mean(zero_points))) / np.sum((airmasses-np.mean(airmasses))**2)
         intercept = np.mean(zero_points) - gradient * np.mean(airmasses)
         zero_point = gradient * input_airmass + intercept
-        print('{} : A = {}X + {}'.format(band,gradient,intercept))
+
         if band == "r": zpr = zero_point
         elif band == "g": zpg = zero_point
         elif band == "u": zpu = zero_point
