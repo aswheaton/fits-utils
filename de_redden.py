@@ -76,6 +76,9 @@ def main():
     de_reddened_gr_excess = gr_excess - best_red_vec_x
     de_reddened_ug_excess = ug_excess - best_red_vec_y
 
+    new_catalogue = np.column_stack((u_mag-u_abs, g_mag-g_abs, r_mag-r_abs))
+    np.savetxt("cat/de_reddened_ugr.cat", new_catalogue)
+
     # Plot chi-sqaured as a function of reddening vector magnitude and the
     # reddened data alongside the de-reddened data and the Pleiades data.
     plt.plot(params_and_fit[:,0], params_and_fit[:,3])
@@ -100,6 +103,9 @@ def main():
     de_reddened_g_mag = g_mag - g_abs
     # Calculate the de-reddened colour excess.
     de_reddened_gr_excess = de_reddened_g_mag - de_reddened_r_mag
+    # Write the corrected catalogue out.
+    de_reddened_gr_r = np.column_stack((de_reddened_gr_excess, de_reddened_r_mag))
+    np.savetxt("cat/de_reddened_gr_r.cat", de_reddened_gr_r)
     # Plot the de-reddened diagram.
     dict = {"M52 g vs. g-r":(de_reddened_gr_excess,de_reddened_g_mag,'o'),
             "Pleiades g vs. g-r":(reduced_data[:,0], reduced_data[:,2]+reduced_data[:,0], 'o')

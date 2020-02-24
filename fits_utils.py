@@ -123,7 +123,9 @@ def load_fits(**kwargs):
         for filename in files:
             if "left" in filename:
                 pass
-            elif "attempt" in filename:
+            elif "at" in filename:
+                pass
+            elif "end" in filename:
                 pass
             elif target_id in filename and band in filename:
                 int_time = filename.split("_")[2][:-1]
@@ -366,6 +368,8 @@ def align(images, **kwargs):
         aligned_images (list of dict): new frames that have been aligned and can
             be stacked.
     """
+    # Which centroiding function to use.
+    centroid_func = kwargs.get("centroid")
     # Boolean, whether or not to mask images for hot pixels on the detector.
     filter = kwargs.get("filter")
     # Find the centroid of the reference star in each image.
@@ -375,7 +379,7 @@ def align(images, **kwargs):
     for image in images:
         counter += 1
         print("---Finding Centre {} of {}".format(counter, len(images)), end="\r")
-        centroid = max_value_centroid(image["data"], size=50, filter=filter)
+        centroid = centroid_func(image["data"], size=50, filter=filter)
         x_centroids.append(centroid[0])
         y_centroids.append(centroid[1])
         image["XCENT"] = centroid[0]
@@ -455,7 +459,7 @@ def stack(aligned_image_stack, **kwargs):
         total_int_time = np.zeros((rows, cols))
         for image in aligned_image_stack:
             # Extract integration time from header and stack the image.
-            total_int_time += int(image["int_time"][:-1])
+            total_int_time += int(image["int_time"])
             stacked_image_data += image["data"]
         # Correct the image data for exposure time of each pixel.
         exposure_corrected_data = np.floor(stacked_image_data / total_int_time)
@@ -525,7 +529,7 @@ def get_zero_points(input_airmass):
         gradient = np.sum((airmasses-np.mean(airmasses))*(zero_points-np.mean(zero_points))) / np.sum((airmasses-np.mean(airmasses))**2)
         intercept = np.mean(zero_points) - gradient * np.mean(airmasses)
         zero_point = gradient * input_airmass + intercept
-        print('{} : A = {}X + {}'.format(band,gradient,intercept))
+
         if band == "r": zpr = zero_point
         elif band == "g": zpg = zero_point
         elif band == "u": zpu = zero_point
