@@ -6,8 +6,9 @@ def main():
     # Central wavelength of filters, in micrometers.
     r_lambda, g_lambda, u_lambda = 0.6231, 0.4770, 0.3543
     # Zero points from zero-point-calculator.
-    zpr, zpg, zpu = get_zero_points(1.04) # Rory's ZP: 30.236, 29.719, 27.075
+    zpr, zpg, zpu = get_zero_points(1.00) # Rory's ZP: 30.236, 29.719, 27.075
     print(zpr, zpg, zpu)
+    zpr, zpg, zpu = 22.9, 23, 21
     # Get the zero point corrected catalogue and error.
     r_mag, r_err, g_mag, g_err, u_mag, u_err = load_cat("cat/ugr.cat", zpr, zpg, zpu)
     # error = (g_err**2 + r_err**2 + u_err**2)**0.5
@@ -18,7 +19,6 @@ def main():
     reduced_data = pleiades_data[index,:]
     # pleiades_coeffs = np.flip(np.polyfit(pleiades_data[:,0], pleiades_data[:,1], 4),axis=0)
     pleiades_coeffs = np.flip(np.polyfit(reduced_data[:,0], reduced_data[:,1], 4),axis=0)
-
     # Calculate the colour excess.
     gr_excess = g_mag - r_mag # x-axis variable
     ug_excess = u_mag - g_mag # y-axis variable
@@ -42,7 +42,7 @@ def main():
     y_cept = mp_y - cardelli_slope*mp_x
 
     # Iterate over reasonable range of values for the reddening vector magnitude.
-    for red_vec_mag in np.linspace(0.0, 10, 10000):
+    for red_vec_mag in np.linspace(0.5, 1.5, 1000):
         red_vec_x = (red_vec_mag**2 / (1 + cardelli_slope**2))**0.5
         red_vec_y = (red_vec_mag**2 / (1 + cardelli_slope**-2))**0.5
 
@@ -103,11 +103,14 @@ def main():
     de_reddened_g_mag = g_mag - g_abs
     # Calculate the de-reddened colour excess.
     de_reddened_gr_excess = de_reddened_g_mag - de_reddened_r_mag
+    # Write the corrected catalogue out.
+    de_reddened_gr_r = np.column_stack((de_reddened_gr_excess, de_reddened_r_mag))
+    np.savetxt("cat/de_reddened_gr_r.cat", de_reddened_gr_r)
     # Plot the de-reddened diagram.
     dict = {"M52 r vs. g-r":(de_reddened_gr_excess,de_reddened_r_mag,'o'),
             "Pleiades r vs. g-r":(pleiades_data[:,0], pleiades_data[:,2], 'o')
            }
-    plot_diagram(dict, x_label="Colour:(g'-r')", y_label="Magnitude: r'",
+    plot_diagram(dict, x_label="Colour:(g-r)", y_label="Magnitude: r",
                  sup_title="M52\nColour-Colour Diagram",
                  legend=True, filename="M52_Colour-Colour_Diagram"
                 )
