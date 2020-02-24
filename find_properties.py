@@ -35,6 +35,7 @@ def remove_outlie(g_r,r):
     return(g_r[index],r[index])
 
 def get_distance_2(g_r,r,param_pl):
+    #USING BIN METHOD
     cut_off=np.mean(g_r)
     index_bin_1= np.where((g_r>np.amin(g_r))&(g_r<cut_off))[0]
     index_bin_2= np.where((g_r>cut_off)&(g_r<np.amax(g_r)))[0]
@@ -44,8 +45,8 @@ def get_distance_2(g_r,r,param_pl):
     bin_2_r=r[index_bin_2]
     mean_bin_1_r=np.mean(bin_1_r)
     mean_bin_2_r=np.mean(bin_2_r)
-    mean_bin_1_g_r=np.mean(bin_1_g_r)
-    mean_bin_2_g_r=np.mean(bin_2_g_r)
+    mean_bin_1_g_r=np.mean(bin_1_g_r) #NOT CENTRAL VALUE OF BIN
+    mean_bin_2_g_r=np.mean(bin_2_g_r) #NOT CENTRAL VALUE OF BIN
     bin_1_r_pl=polynomial(mean_bin_1_g_r,*param_pl)
     bin_2_r_pl=polynomial(mean_bin_2_g_r,*param_pl)
     r_bin_1_diff=abs(bin_1_r_pl-mean_bin_1_r)
@@ -54,32 +55,32 @@ def get_distance_2(g_r,r,param_pl):
     print(dist_mod)
     exponent=((dist_mod/5)+1)
     distance= 10**(exponent)
-    err_dist_mod=
-    err_distance=(2**((dist_mod/5)+1)*np.log(10)*(5**(dist_mod/5)))*err_dist_mod
+    #err_dist_mod=
+    #err_distance=(2**((dist_mod/5)+1)*np.log(10)*(5**(dist_mod/5)))*err_dist_mod
     return(distance)
 
 
-def get_distance(param,param_pl,color_gr,g_r_pl,cov_pl,cov_m52):
+def get_distance(param,param_pl,color_gr,g_r_pl):
     start= np.amin(color_gr)
     stop=np.amax(color_gr)
     shift_list=[]
-    pl_1=((g_r_pl**4)*err_a)**2
+    '''pl_1=((g_r_pl**4)*err_a)**2
     pl_2=((g_r_pl**3)*err_b)**2
     pl_3=((g_r_pl**2)*err_c)**2
     pl_4=((g_r_pl)*err_d)**2
     pl_5=(err_e)**2
-    pl_6=([4*param_pl[0]*(g_r_pl**3) + 3*param_pl[1]*(g_r_pl)**2 + 2*param_pl[2]*(g_r_pl) + param_pl[3]]*err_g_r_pl)**2
+    pl_6=([4*param_pl[0]*(g_r_pl**3) + 3*param_pl[1]*(g_r_pl)**2 + 2*param_pl[2]*(g_r_pl) + param_pl[3]]*err_g_r_pl)**2'''
     for x in np.linspace(start,stop,num=1000):
         y_pl=polynomial(x,*param_pl)
-        y_pl_err=np.sqrt(pl_1 +pl_2 +pl_3 +pl_4 +pl_5 +pl_6)        
+        #y_pl_err=np.sqrt(pl_1 +pl_2 +pl_3 +pl_4 +pl_5 +pl_6)
         y_m52= polynomial(x,*param)
         y_diff=abs(y_pl -y_m52)
         shift_list.append(y_diff)
 
     dist_mod=np.mean(shift_list)
     print(dist_mod)
-    err_dist_mod=
-    err_distance=(2**((dist_mod/5)+1)*np.log(10)*(5**(dist_mod/5)))*err_dist_mod
+    #err_dist_mod=
+    #err_distance=(2**((dist_mod/5)+1)*np.log(10)*(5**(dist_mod/5)))*err_dist_mod
     exponent=((dist_mod/5)+1)
     distance= 10**(exponent)
     return(distance)
@@ -95,10 +96,10 @@ def main():
     r_pl_abs= get_abs_mag(r_pl)
     cor_g_r_pl,cor_r_abs_pl= remove_outlie(g_r_pl,r_pl_abs)
     cor_g_r_m52,cor_r_m52= remove_outlie(color_gr,r_mag)
-    param_pl,cov_pl= get_fit(polynomial,cor_g_r_pl,cor_r_abs_pl)
-    param_m52,cov_m52= get_fit(polynomial,cor_g_r_m52,cor_r_m52)
-    dist_pc=get_distance(param_m52,param_pl,cor_g_r_m52,cor_g_r_pl,cov_pl,cov_m52)
-    #dist_pc=get_distance_2(cor_g_r_m52,cor_r_m52,param_pl)
+    param_pl= get_fit(polynomial,cor_g_r_pl,cor_r_abs_pl)
+    param_m52= get_fit(polynomial,cor_g_r_m52,cor_r_m52)
+    #dist_pc=get_distance(param_m52,param_pl,cor_g_r_m52,cor_g_r_pl)
+    dist_pc=get_distance_2(cor_g_r_m52,cor_r_m52,param_pl)
     dist_rounded=np.round(dist_pc,decimals=3)
     print("The distance to Messier 52 is: " +str(dist_rounded)+" parsecs.")
     distance=(3.08567782E+16)*dist_pc
