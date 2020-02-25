@@ -209,6 +209,18 @@ def write_out_fits(image, filename):
         image (ndarray): reduced data to be written to fits file.
         filename (string): name (and location) of new fits file.
     """
+    hdul = fits.HDUList([fits.PrimaryHDU(image[0].data)])
+    hdul.writeto(filename, overwrite=True)
+
+def write_out_fits_2(image, filename):
+    """
+    Creates a header for an ndarray of reduced data and then creates a new fits
+    file of this data.
+
+    Args:
+        image (ndarray): reduced data to be written to fits file.
+        filename (string): name (and location) of new fits file.
+    """
     hdul = fits.HDUList([fits.PrimaryHDU(image["data"])])
     hdul.writeto(filename, overwrite=True)
 
