@@ -465,13 +465,14 @@ def stack(aligned_image_stack, **kwargs):
             print("Aligned image dimensions do not match!")
             break
 
-    # If all dimensions match, initialise an empty array with those dimensions
-    # into which aligned images are stacked.
+    # Initialise an empty array into which aligned images are stacked.
     stacked_image_data = np.zeros(aligned_image_stack[0]["data"].shape)
-    stacked_image_exp = np.zeros(aligned_image_stack[0]["int_time"].shape)
 
     if kwargs.get("correct_exposure") == True:
-        # Initialise array with second axis for storing exposure/pixel.
+
+        # Also initialise an empty array into which frames per pixel column are summed.
+        total_frame_count = np.zeros(aligned_image_stack[0]["data"].shape)
+
         for image in aligned_image_stack:
             # Correct the image data for exposure and sum up the fluxes.
             stacked_image_data += image["data"] / image["int_time"]
@@ -487,8 +488,7 @@ def stack(aligned_image_stack, **kwargs):
     else:
         for image in aligned_image_stack:
             stacked_image_data += image["data"]
-        stacked_image = {}
-        stacked_image["data"] = stacked_image_data
+        stacked_image = {"data" : stacked_image_data}
         return(stacked_image)
 
 def rgb(image_r, image_g, image_b):
