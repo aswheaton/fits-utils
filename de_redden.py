@@ -14,8 +14,8 @@ def main():
 
     pleiades_data = np.loadtxt("pleiades/pleiades_johnson.txt")
     pleiades_data = correct_pleiades(pleiades_data)
-    index = np.where(pleiades_data[:,0] < 0.5)[0]
-    reduced_data = pleiades_data[index,:]
+    indices = np.where(pleiades_data[:,0] < 0.5)[0]
+    reduced_data = pleiades_data[indices,:]
     # pleiades_coeffs = np.flip(np.polyfit(pleiades_data[:,0], pleiades_data[:,1], 4),axis=0)
     pleiades_coeffs = np.flip(np.polyfit(reduced_data[:,0], reduced_data[:,1], 4),axis=0)
     # Calculate the colour excess.
@@ -94,7 +94,7 @@ def main():
                 )
 
     # Load in the larger g and r catalogue of objects which are invisible in u.
-    g_and_r_cat = catalog = np.loadtxt("cat/gr.cat")
+    catalog = np.loadtxt("cat/gr.cat")
     r_mag, r_err = get_mag(catalog[:,5], catalog[:,6], zpr)
     g_mag, g_err = get_mag(catalog[:,3], catalog[:,4], zpg)
     # De-redden the larger catalogue with newly found r_abs and g_abs values.
@@ -106,8 +106,8 @@ def main():
     de_reddened_gr_r = np.column_stack((de_reddened_gr_excess, de_reddened_r_mag))
     np.savetxt("cat/de_reddened_gr_r.cat", de_reddened_gr_r)
     # Plot the de-reddened diagram.
-    dict = {"M52 r vs. g-r":(de_reddened_gr_excess,de_reddened_r_mag,'o'),
-            "Pleiades r vs. g-r":(reduced_data[:,0], reduced_data[:,2], 'o')
+    dict = {"M52 g vs. g-r":(de_reddened_gr_excess,de_reddened_g_mag,'o'),
+            "Pleiades g vs. g-r":(pleiades_data[:,0], pleiades_data[:,0]+pleiades_data[:,2], 'o')
            }
     plot_diagram(dict, x_label="Colour:(g-r)", y_label="Magnitude: g",
                  sup_title="M52\nColour-Colour Diagram",
