@@ -41,7 +41,7 @@ def main():
     y_cept = mp_y - cardelli_slope*mp_x
 
     # Iterate over reasonable range of values for the reddening vector magnitude.
-    for red_vec_mag in np.linspace(0.35, 1.75, 1000):
+    for red_vec_mag in np.linspace(0.6, 1.75, 1000):
         # Separate reddening vector into components in colour-colour space.
         red_vec_x = (red_vec_mag**2 / (1 + cardelli_slope**2))**0.5
         red_vec_y = (red_vec_mag**2 / (1 + cardelli_slope**-2))**0.5

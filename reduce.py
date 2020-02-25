@@ -11,7 +11,7 @@ def main():
     have the integration times or bands as the keys.
     """
     # Generate the config file.
-    gen_config()
+    # gen_config()
     #: path obj: Various folder locations.
     data_folder = Path("dat/")
     science_folder = Path("sci/")

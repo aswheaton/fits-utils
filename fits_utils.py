@@ -429,14 +429,18 @@ def align(images, **kwargs):
     # Create new stack of aligned images using the centroid in each frame.
     aligned_images = []
     for image in images:
-        # Create new array containing aligned image data.
-        aligned_image_data = np.zeros((image["data"].shape[0]+max_dif[0], image["data"].shape[1]+max_dif[1]))
+        # Determine region in which to cast the image.
         centroid = (image["XCENT"], image["YCENT"])
         disp = (max_pos[0] - centroid[0], max_pos[1] - centroid[1])
+        # Create new array containing aligned image data.
+        aligned_image_data = np.zeros((image["data"].shape[0]+max_dif[0], image["data"].shape[1]+max_dif[1]), dtype=int)
         aligned_image_data[disp[0]:disp[0]+image["data"].shape[0],disp[1]:disp[1]+image["data"].shape[1]] = image["data"]
+        # Create new dictionary value of exposure time for each pixel.
+        aligned_image_exp = np.zeros((image["data"].shape[0]+max_dif[0], image["data"].shape[1]+max_dif[1]), dtype=int)
+        aligned_image_exp[disp[0]:disp[0]+image["data"].shape[0],disp[1]:disp[1]+image["data"].shape[1]] = image["int_time"]
         # Create new image dictionary and copy over header data from image.
         aligned_image = {}
-        aligned_image["int_time"] = image["int_time"]
+        aligned_image["int_time"] = aligned_image_exp
         aligned_image["target"] = image["target"]
         aligned_image["filename"] = image["filename"]
         aligned_image["data"] = aligned_image_data
@@ -464,21 +468,19 @@ def stack(aligned_image_stack, **kwargs):
     # If all dimensions match, initialise an empty array with those dimensions
     # into which aligned images are stacked.
     stacked_image_data = np.zeros(aligned_image_stack[0]["data"].shape)
+    stacked_image_exp = np.zeros(aligned_image_stack[0]["int_time"].shape)
 
     if kwargs.get("correct_exposure") == True:
         # Initialise array with second axis for storing exposure/pixel.
-        rows, cols = aligned_image_stack[0]["data"].shape
-        total_int_time = np.zeros((rows, cols))
         for image in aligned_image_stack:
-            # Extract integration time from header and stack the image.
-            total_int_time += image["int_time"]
+            # Extract integration time from header, correct the image data for
+            # exposure time of each pixel, and stack the image.
             stacked_image_data += image["data"]
+            stacked_image_exp += image["int_time"]
+        # Replace zeros with ones to prevent zero division error (yuck!)
+        stacked_image_exp[np.where(stacked_image_exp == 0)] = 1
         # Correct the image data for exposure time of each pixel.
-        exposure_corrected_data = np.floor(stacked_image_data / total_int_time)
-        # Create new dict containing exposure corrected stack. Note the int_time
-        # is now an array of exposure times for each pixel!
-        exposure_corrected_stack = {}
-        exposure_corrected_stack["data"] = exposure_corrected_data
+        exposure_corrected_stack = {"data" : np.floor(stacked_image_data/stacked_image_exp)}
         return(exposure_corrected_stack)
     else:
         for image in aligned_image_stack:
@@ -526,6 +528,11 @@ def reduce_raws(raw_list, master_dark_frame, master_flat_frame, dir):
             science_list[raw["filename"]] = np.divide(ds_data, master_flat_frame[raw["band"]])
     print("\nDone!")
     return science_list
+
+def trim(filename):
+    hdul = fits.open(filename)
+    hdul[0].data = np.array(hdul[0].data[50:-50,50:-50])
+    hdul.writeto(filename, overwrite=True)
 
 def get_zero_points(input_airmass):
 
