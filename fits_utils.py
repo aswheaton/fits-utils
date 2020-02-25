@@ -423,27 +423,27 @@ def align(images, **kwargs):
         #     plt.savefig("r_max_margin_1.jpeg", bbox_inches="tight", pad_inches=0, dpi=1000)
 
     print()
-    max_pos = (max(x_centroids), max(y_centroids))
-    min_pos = (min(x_centroids), min(y_centroids))
-    max_dif = (max_pos[0]-min_pos[0], max_pos[1]-min_pos[1])
+    max_pos_x, max_pos_y = max(x_centroids), max(y_centroids)
+    min_pos_x, min_mos_y = min(x_centroids), min(y_centroids)
+    max_dif_x, max_dif_y = max_pos_x - min_pos_x, max_pos_y - min_pos_y
     # Create new stack of aligned images using the centroid in each frame.
     aligned_images = []
     for image in images:
         # Determine region in which to cast the image.
-        centroid = (image["XCENT"], image["YCENT"])
-        disp = (max_pos[0] - centroid[0], max_pos[1] - centroid[1])
+        disp_x, disp_y = max_pos_x - image["XCENT"], max_pos_y - image["YCENT"]
+        imsize_x, imsize_y = image["data"].shape[0], image["data"].shape[1]
         # Create new array containing aligned image data.
-        aligned_image_data = np.zeros((image["data"].shape[0]+max_dif[0], image["data"].shape[1]+max_dif[1]), dtype=int)
-        aligned_image_data[disp[0]:disp[0]+image["data"].shape[0],disp[1]:disp[1]+image["data"].shape[1]] = image["data"]
-        # Create new dictionary value of exposure time for each pixel.
-        aligned_image_exp = np.zeros((image["data"].shape[0]+max_dif[0], image["data"].shape[1]+max_dif[1]), dtype=int)
-        aligned_image_exp[disp[0]:disp[0]+image["data"].shape[0],disp[1]:disp[1]+image["data"].shape[1]] = image["int_time"]
+        aligned_image_data = np.zeros((imsize_x+max_dif_x, imsize_y+max_dif_y), dtype=int)
+        aligned_image_data[disp_x:disp_x+imsize_x,disp_y:disp_y+imsize_y] = image["data"]
+        # Create new dictionary value of frames per pixel column (one everywhere for unstacked image).
+        frame_count = np.zeros((imsize_x+max_dif_x, imsize_y+max_dif_y), dtype=int)
+        frame_count[disp_x:disp_x+imsize_x,disp_y:disp_y+imsize_y] = 1
         # Create new image dictionary and copy over header data from image.
-        aligned_image = {}
-        aligned_image["int_time"] = aligned_image_exp
-        aligned_image["target"] = image["target"]
-        aligned_image["filename"] = image["filename"]
-        aligned_image["data"] = aligned_image_data
+        aligned_image = {"target"      : image["target"],
+                         "filename"    : image["filename"],
+                         "data"        : aligned_image_data,
+                         "frame_count" : frame_count
+                         }
         # Add the new aligned image dictionary to a list to be returned.
         aligned_images.append(aligned_image)
     print("---Alignment Complete---")
@@ -473,14 +473,16 @@ def stack(aligned_image_stack, **kwargs):
     if kwargs.get("correct_exposure") == True:
         # Initialise array with second axis for storing exposure/pixel.
         for image in aligned_image_stack:
-            # Extract integration time from header, correct the image data for
-            # exposure time of each pixel, and stack the image.
-            stacked_image_data += image["data"]
-            stacked_image_exp += image["int_time"]
-        # Replace zeros with ones to prevent zero division error (yuck!)
-        stacked_image_exp[np.where(stacked_image_exp == 0)] = 1
-        # Correct the image data for exposure time of each pixel.
-        exposure_corrected_stack = {"data" : np.floor(stacked_image_data/stacked_image_exp)}
+            # Correct the image data for exposure and sum up the fluxes.
+            stacked_image_data += image["data"] / image["int_time"]
+            # Sum up the number of overlapping frames per pixel column.
+            total_frame_count += image["frame_count"]
+        # Replace zeros with ones to prevent zero division error (dodgy!)
+        total_frame_count[np.where(stacked_image_exp == 0)] = 1
+        # Average each pixel column over the number of frames in that column.
+        stacked_image_data = int(np.floor(stacked_image_data / total_frame_count))
+        # Create new dictionary containg the average flux (counts/second/pixel).
+        exposure_corrected_stack = {"data" : stacked_image_data}
         return(exposure_corrected_stack)
     else:
         for image in aligned_image_stack:
