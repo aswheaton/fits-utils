@@ -6,9 +6,8 @@ def main():
     # Central wavelength of filters, in micrometers.
     r_lambda, g_lambda, u_lambda = 0.6231, 0.4770, 0.3543
     # Zero points from zero-point-calculator.
-    zpr, zpg, zpu = get_zero_points(1.00) # Rory's ZP: 30.236, 29.719, 27.075
-    print(zpr, zpg, zpu)
-    # zpr, zpg, zpu = 22.9, 23, 21
+    zpr, zpg, zpu = get_zero_points(1.04) # Rory's ZP: 30.236, 29.719, 27.075
+    print("zpr = {}, zpg = {}, zpu = {}".format(str(zpr)[:5], str(zpg)[:5], str(zpu)[:5]))
     # Get the zero point corrected catalogue and error.
     r_mag, r_err, g_mag, g_err, u_mag, u_err = load_cat("cat/ugr.cat", zpr, zpg, zpu)
     # error = (g_err**2 + r_err**2 + u_err**2)**0.5
@@ -42,18 +41,18 @@ def main():
     y_cept = mp_y - cardelli_slope*mp_x
 
     # Iterate over reasonable range of values for the reddening vector magnitude.
-    for red_vec_mag in np.linspace(0.5, 1.5, 1000):
+    for red_vec_mag in np.linspace(0.35, 1.75, 1000):
+        # Separate reddening vector into components in colour-colour space.
         red_vec_x = (red_vec_mag**2 / (1 + cardelli_slope**2))**0.5
         red_vec_y = (red_vec_mag**2 / (1 + cardelli_slope**-2))**0.5
-
-        # red_vec_x = red_vec_mag/(cardelli_slope+1)
-        # red_vec_y = (red_vec_mag * cardelli_slope)/(cardelli_slope + 1)
-
-        gr_excess_shifted = gr_excess - red_vec_x
-        ug_excess_shifted = ug_excess - red_vec_y
+        # Remove outliers which might skew the chi-squared minimisation.
+        reduced_indices = remove_outliers(gr_excess, 0.2, 0.7)
+        gr_excess_shifted = gr_excess[reduced_indices] - red_vec_x
+        ug_excess_shifted = ug_excess[reduced_indices] - red_vec_y
+        # Get the minimum chi-squared value for the particular magnitude.
         chi_squ = get_chi_squ(gr_excess_shifted, ug_excess_shifted, polynomial,
-                              pleiades_coeffs, ug_excess_err
-                              )
+                                 pleiades_coeffs, ug_excess_err[reduced_indices]
+                                )
         params_and_fit.append([red_vec_mag, red_vec_x, red_vec_y, chi_squ])
 
     # Dirty data type change so minimisation can be performed.
@@ -107,8 +106,8 @@ def main():
     de_reddened_gr_r = np.column_stack((de_reddened_gr_excess, de_reddened_r_mag))
     np.savetxt("cat/de_reddened_gr_r.cat", de_reddened_gr_r)
     # Plot the de-reddened diagram.
-    dict = {"M52 g vs. g-r":(de_reddened_gr_excess,de_reddened_g_mag,'o'),
-            "Pleiades g vs. g-r":(reduced_data[:,0], reduced_data[:,2]+reduced_data[:,0], 'o')
+    dict = {"M52 r vs. g-r":(de_reddened_gr_excess,de_reddened_r_mag,'o'),
+            "Pleiades r vs. g-r":(reduced_data[:,0], reduced_data[:,2], 'o')
            }
     plot_diagram(dict, x_label="Colour:(g-r)", y_label="Magnitude: g",
                  sup_title="M52\nColour-Colour Diagram",

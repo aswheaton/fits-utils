@@ -128,7 +128,7 @@ def load_fits(**kwargs):
             elif "end" in filename:
                 pass
             elif target_id in filename and band in filename:
-                int_time = filename.split("_")[2][:-1]
+                int_time = int(filename.split("_")[2][:-1])
                 print(target_id, band, int_time, " matched ", filename)
                 with fits.open(root+filename) as hdul:
                     new_image = {}
@@ -201,6 +201,18 @@ def average_frame(filelist, **kwargs):
         return average
 
 def write_out_fits(image, filename):
+    """
+    Creates a header for an ndarray of reduced data and then creates a new fits
+    file of this data.
+
+    Args:
+        image (ndarray): reduced data to be written to fits file.
+        filename (string): name (and location) of new fits file.
+    """
+    hdul = fits.HDUList([fits.PrimaryHDU(image)])
+    hdul.writeto(filename, overwrite=True)
+
+def write_out_fits_2(image, filename):
     """
     Creates a header for an ndarray of reduced data and then creates a new fits
     file of this data.
@@ -459,7 +471,7 @@ def stack(aligned_image_stack, **kwargs):
         total_int_time = np.zeros((rows, cols))
         for image in aligned_image_stack:
             # Extract integration time from header and stack the image.
-            total_int_time += int(image["int_time"])
+            total_int_time += image["int_time"]
             stacked_image_data += image["data"]
         # Correct the image data for exposure time of each pixel.
         exposure_corrected_data = np.floor(stacked_image_data / total_int_time)
@@ -521,7 +533,7 @@ def get_zero_points(input_airmass):
     # bd25_standard_mags = {"r":9.929, "g":9.450, "u":9.023}
 
     for band in ["r","g","u"]:
-        counts_and_errs = np.loadtxt("standard_stars/standard_stars_{}.csv".format(band))
+        counts_and_errs = np.loadtxt("standard_stars/std_{}.csv".format(band))
         airmasses = np.array(counts_and_errs[:,3])
         zero_points = counts_and_errs[:,0] + 2.5 * np.log10(counts_and_errs[:,1])
         zero_point_errs = counts_and_errs[:,2] * 2.5 / counts_and_errs[:,1] / np.log(10)
@@ -642,9 +654,22 @@ def get_chi_squ(x, y, func, coeffs, error):
     that returns the predicted predicted values.
     """
     chi_squ_tot = np.sum(((y - func(x, coeffs)) / error)**2)
-    # expected_y = func(x, coeffs)
-    # chi_squ_tot = np.sum(((y - expected_y)**2)/expected_y)
     return(chi_squ_tot)
+
+def get_sumsqu_res(x, y, func, coeffs):
+    """
+    Returns the sum of squared residuals for a given x,y dataset and a function
+    handle that returns the predicted predicted values.
+    """
+    sum_squ_res = np.sum((y - func(x, coeffs))**2)
+    return(sum_squ_res)
+
+def remove_outliers(x, lower_bound, upper_bound):
+    """
+    Returns the indices of a reduced data set within a given lower and upper bound.
+    """
+    indices = np.where((x >= lower_bound) & (x <= upper_bound))[0]
+    return(indices)
 
 def minimiser(array):
     """
