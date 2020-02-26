@@ -3,14 +3,14 @@ import matplotlib.pyplot as plt
 
 def main():
 
+    cat_dir = "cat/cumulative_trim/"
     # Central wavelength of filters, in micrometers.
     r_lambda, g_lambda, u_lambda = 0.6231, 0.4770, 0.3543
     # Zero points from zero-point-calculator.
     zpr, zpg, zpu = get_zero_points(1.04) # Rory's ZP: 30.236, 29.719, 27.075
     print("zpr = {}, zpg = {}, zpu = {}".format(str(zpr)[:5], str(zpg)[:5], str(zpu)[:5]))
     # Get the zero point corrected catalogue and error.
-    r_mag, r_err, g_mag, g_err, u_mag, u_err = load_cat("cat/ugr.cat", zpr, zpg, zpu)
-    # error = (g_err**2 + r_err**2 + u_err**2)**0.5
+    r_mag, r_err, g_mag, g_err, u_mag, u_err = load_cat(cat_dir+"ugr.cat", zpr, zpg, zpu)
 
     pleiades_data = np.loadtxt("pleiades/pleiades_johnson.txt")
     pleiades_data = correct_pleiades(pleiades_data)
@@ -41,7 +41,7 @@ def main():
     y_cept = mp_y - cardelli_slope*mp_x
 
     # Iterate over reasonable range of values for the reddening vector magnitude.
-    for red_vec_mag in np.linspace(0.6, 1.75, 1000):
+    for red_vec_mag in np.linspace(0.8, 1.6, 1000):
         # Separate reddening vector into components in colour-colour space.
         red_vec_x = (red_vec_mag**2 / (1 + cardelli_slope**2))**0.5
         red_vec_y = (red_vec_mag**2 / (1 + cardelli_slope**-2))**0.5
@@ -76,7 +76,7 @@ def main():
     de_reddened_ug_excess = ug_excess - best_red_vec_y
 
     new_catalogue = np.column_stack((u_mag-u_abs, g_mag-g_abs, r_mag-r_abs))
-    np.savetxt("cat/de_reddened_ugr.cat", new_catalogue)
+    np.savetxt(cat_dir+"de_reddened_ugr.cat", new_catalogue)
 
     # Plot chi-sqaured as a function of reddening vector magnitude and the
     # reddened data alongside the de-reddened data and the Pleiades data.
@@ -94,9 +94,9 @@ def main():
                 )
 
     # Load in the larger g and r catalogue of objects which are invisible in u.
-    catalog = np.loadtxt("cat/gr.cat")
-    r_mag, r_err = get_mag(catalog[:,5], catalog[:,6], zpr)
-    g_mag, g_err = get_mag(catalog[:,3], catalog[:,4], zpg)
+    catalog = np.loadtxt(cat_dir+"gr.cat")
+    r_mag, r_err = get_mag(catalog[:,5], catalog[:,6], zpr, 600)
+    g_mag, g_err = get_mag(catalog[:,3], catalog[:,4], zpg, 600)
     # De-redden the larger catalogue with newly found r_abs and g_abs values.
     de_reddened_r_mag = r_mag - r_abs
     de_reddened_g_mag = g_mag - g_abs
@@ -104,10 +104,10 @@ def main():
     de_reddened_gr_excess = de_reddened_g_mag - de_reddened_r_mag
     # Write the corrected catalogue out.
     de_reddened_gr_r = np.column_stack((de_reddened_gr_excess, de_reddened_r_mag))
-    np.savetxt("cat/de_reddened_gr_r.cat", de_reddened_gr_r)
+    np.savetxt(cat_dir+"de_reddened_gr_r.cat", de_reddened_gr_r)
     # Plot the de-reddened diagram.
-    dict = {"M52 g vs. g-r":(de_reddened_gr_excess,de_reddened_g_mag,'o'),
-            "Pleiades g vs. g-r":(pleiades_data[:,0], pleiades_data[:,0]+pleiades_data[:,2], 'o')
+    dict = {"M52 r vs. g-r":(de_reddened_gr_excess, de_reddened_r_mag,'o'),
+            "Pleiades r vs. g-r":(pleiades_data[:,0], pleiades_data[:,2], 'o')
            }
     plot_diagram(dict, x_label="Colour:(g-r)", y_label="Magnitude: g",
                  sup_title="M52\nColour-Colour Diagram",

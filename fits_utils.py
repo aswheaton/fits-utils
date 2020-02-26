@@ -423,27 +423,31 @@ def align(images, **kwargs):
         #     plt.savefig("r_max_margin_1.jpeg", bbox_inches="tight", pad_inches=0, dpi=1000)
 
     print()
-    max_pos = (max(x_centroids), max(y_centroids))
-    min_pos = (min(x_centroids), min(y_centroids))
-    max_dif = (max_pos[0]-min_pos[0], max_pos[1]-min_pos[1])
+    max_pos_x, max_pos_y = max(x_centroids), max(y_centroids)
+    min_pos_x, min_pos_y = min(x_centroids), min(y_centroids)
+    max_dif_x, max_dif_y = max_pos_x - min_pos_x, max_pos_y - min_pos_y
     # Create new stack of aligned images using the centroid in each frame.
     aligned_images = []
+    counter = 0
     for image in images:
+        counter += 1
+        print("---Aligning Image {} of {}".format(counter, len(images)), end="\r")
         # Determine region in which to cast the image.
-        centroid = (image["XCENT"], image["YCENT"])
-        disp = (max_pos[0] - centroid[0], max_pos[1] - centroid[1])
+        disp_x, disp_y = max_pos_x - image["XCENT"], max_pos_y - image["YCENT"]
+        imsize_x, imsize_y = image["data"].shape[0], image["data"].shape[1]
         # Create new array containing aligned image data.
-        aligned_image_data = np.zeros((image["data"].shape[0]+max_dif[0], image["data"].shape[1]+max_dif[1]), dtype=int)
-        aligned_image_data[disp[0]:disp[0]+image["data"].shape[0],disp[1]:disp[1]+image["data"].shape[1]] = image["data"]
-        # Create new dictionary value of exposure time for each pixel.
-        aligned_image_exp = np.zeros((image["data"].shape[0]+max_dif[0], image["data"].shape[1]+max_dif[1]), dtype=int)
-        aligned_image_exp[disp[0]:disp[0]+image["data"].shape[0],disp[1]:disp[1]+image["data"].shape[1]] = image["int_time"]
+        aligned_image_data = np.zeros((imsize_x+max_dif_x, imsize_y+max_dif_y), dtype=int)
+        aligned_image_data[disp_x:disp_x+imsize_x,disp_y:disp_y+imsize_y] = image["data"]
+        # Create new dictionary value of frames per pixel column (one everywhere for unstacked image).
+        frame_count = np.zeros((imsize_x+max_dif_x, imsize_y+max_dif_y), dtype=int)
+        frame_count[disp_x:disp_x+imsize_x,disp_y:disp_y+imsize_y] = 1
         # Create new image dictionary and copy over header data from image.
-        aligned_image = {}
-        aligned_image["int_time"] = aligned_image_exp
-        aligned_image["target"] = image["target"]
-        aligned_image["filename"] = image["filename"]
-        aligned_image["data"] = aligned_image_data
+        aligned_image = {"target"      : image["target"],
+                         "filename"    : image["filename"],
+                         "int_time"    : image["int_time"],
+                         "data"        : aligned_image_data,
+                         "frame_count" : frame_count
+                         }
         # Add the new aligned image dictionary to a list to be returned.
         aligned_images.append(aligned_image)
     print("---Alignment Complete---")
@@ -459,34 +463,46 @@ def stack(aligned_image_stack, **kwargs):
     Returns:
         stacked_image (dict): new combined single frame.
     """
+
+    print("---Stacking Images---")
+
     # Check that the aligned images to be stacked have matching dimensions.
     for image in aligned_image_stack:
         if image["data"].shape != aligned_image_stack[0]["data"].shape:
             print("Aligned image dimensions do not match!")
             break
 
-    # If all dimensions match, initialise an empty array with those dimensions
-    # into which aligned images are stacked.
+    # Initialise an empty array into which aligned images are stacked.
     stacked_image_data = np.zeros(aligned_image_stack[0]["data"].shape)
-    stacked_image_exp = np.zeros(aligned_image_stack[0]["int_time"].shape)
+    counter = 0
 
     if kwargs.get("correct_exposure") == True:
-        # Initialise array with second axis for storing exposure/pixel.
+
+        # Also initialise an empty array into which frames per pixel column are summed.
+        total_frame_count = np.zeros(aligned_image_stack[0]["data"].shape)
+
         for image in aligned_image_stack:
-            # Extract integration time from header, correct the image data for
-            # exposure time of each pixel, and stack the image.
-            stacked_image_data += image["data"]
-            stacked_image_exp += image["int_time"]
-        # Replace zeros with ones to prevent zero division error (yuck!)
-        stacked_image_exp[np.where(stacked_image_exp == 0)] = 1
-        # Correct the image data for exposure time of each pixel.
-        exposure_corrected_stack = {"data" : np.floor(stacked_image_data/stacked_image_exp)}
+            counter += 1
+            print("---Stacking Image {} of {}".format(counter, len(aligned_image_stack)), end="\r")
+            # Correct the image data for exposure and sum up the fluxes.
+            stacked_image_data += image["data"] / image["int_time"]
+            # Sum up the number of overlapping frames per pixel column.
+            total_frame_count += image["frame_count"]
+        # Replace zeros with ones to prevent zero division error (dodgy!)
+        total_frame_count[np.where(total_frame_count == 0)] = 1
+        # Average each pixel column over the number of frames in that column.
+        stacked_image_data = np.floor(stacked_image_data / total_frame_count)
+        stacked_image_data.astype(dtype=int, copy=False)
+        # Create new dictionary containg the average flux (counts/second/pixel).
+        exposure_corrected_stack = {"data" : stacked_image_data}
+
+        print("---Stacking Complete---")
+
         return(exposure_corrected_stack)
     else:
         for image in aligned_image_stack:
             stacked_image_data += image["data"]
-        stacked_image = {}
-        stacked_image["data"] = stacked_image_data
+        stacked_image = {"data" : stacked_image_data}
         return(stacked_image)
 
 def rgb(image_r, image_g, image_b):
@@ -531,7 +547,7 @@ def reduce_raws(raw_list, master_dark_frame, master_flat_frame, dir):
 
 def trim(filename):
     hdul = fits.open(filename)
-    hdul[0].data = np.array(hdul[0].data[50:-50,50:-50])
+    hdul[0].data = np.array(hdul[0].data[300:-300,300:-300])
     hdul.writeto(filename, overwrite=True)
 
 def get_zero_points(input_airmass):
@@ -585,14 +601,15 @@ def correct_pleiades(p_data):
     p_data[:,2] = p_data[:,2] - 0.544
     return(p_data)
 
-def get_mag(flux, flux_error, zero_point):
+def get_mag(flux, flux_error, zero_point, int_time):
     """
     Recieves the flux of an object, the error on that flux, and an instrumental
     zero point and returns a zero point corrected magnitude and magnitude error
     for the object.
     """
-    mag = -2.5 * np.log10(flux) + zero_point
-    mag_err = (-2.5/flux/np.log(10)) * flux_error
+
+    mag = -2.5 * np.log10(flux/int_time) + zero_point
+    mag_err = (-2.5/flux/int_time/np.log(10)) * flux_error / int_time
     return(mag, mag_err)
 
 def load_cat(filename, zpr, zpg, zpu):
@@ -601,9 +618,9 @@ def load_cat(filename, zpr, zpg, zpu):
     of calatogue fluxes and their errors after zero point correction.
     """
     catalog = np.loadtxt(filename)
-    r_mag, r_err = get_mag(catalog[:,5], catalog[:,6], zpr)
-    g_mag, g_err = get_mag(catalog[:,3], catalog[:,4], zpg)
-    u_mag, u_err = get_mag(catalog[:,7], catalog[:,8], zpu)
+    r_mag, r_err = get_mag(catalog[:,5], catalog[:,6], zpr, 600)
+    g_mag, g_err = get_mag(catalog[:,3], catalog[:,4], zpg, 600)
+    u_mag, u_err = get_mag(catalog[:,7], catalog[:,8], zpu, 800)
     return(r_mag, r_err, g_mag, g_err, u_mag, u_err)
 
 def write_cat(r_mag, g_mag, u_mag, filename):
