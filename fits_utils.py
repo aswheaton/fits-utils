@@ -424,7 +424,7 @@ def align(images, **kwargs):
 
     print()
     max_pos_x, max_pos_y = max(x_centroids), max(y_centroids)
-    min_pos_x, min_mos_y = min(x_centroids), min(y_centroids)
+    min_pos_x, min_pos_y = min(x_centroids), min(y_centroids)
     max_dif_x, max_dif_y = max_pos_x - min_pos_x, max_pos_y - min_pos_y
     # Create new stack of aligned images using the centroid in each frame.
     aligned_images = []
@@ -441,6 +441,7 @@ def align(images, **kwargs):
         # Create new image dictionary and copy over header data from image.
         aligned_image = {"target"      : image["target"],
                          "filename"    : image["filename"],
+                         "int_time"    : image["int_time"],
                          "data"        : aligned_image_data,
                          "frame_count" : frame_count
                          }
@@ -479,9 +480,10 @@ def stack(aligned_image_stack, **kwargs):
             # Sum up the number of overlapping frames per pixel column.
             total_frame_count += image["frame_count"]
         # Replace zeros with ones to prevent zero division error (dodgy!)
-        total_frame_count[np.where(stacked_image_exp == 0)] = 1
+        total_frame_count[np.where(total_frame_count == 0)] = 1
         # Average each pixel column over the number of frames in that column.
-        stacked_image_data = int(np.floor(stacked_image_data / total_frame_count))
+        stacked_image_data = np.floor(stacked_image_data / total_frame_count)
+        stacked_image_data.astype(dtype=int, copy=False)
         # Create new dictionary containg the average flux (counts/second/pixel).
         exposure_corrected_stack = {"data" : stacked_image_data}
         return(exposure_corrected_stack)
