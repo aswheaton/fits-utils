@@ -734,8 +734,16 @@ def cardelli_const(not_gamma):
 def get_cardelli_slope(c_constants):
     return((c_constants["u"]-c_constants["g"])/(c_constants["g"]-c_constants["r"]))
 
-def get_spectral_types(sources):
-    pass
+def convert_spectral_type(data):
+    """
+    Conversion using Jordi et al (2006) equations.
+    """
+    color_u_g = (0.75 * data[:,1]) + (0.77 * data[:,2]) + 0.72
+    color_g_r = (1.646 * data[:,3]) - 0.139
+    new_data = [data[:,0], color_u_g, color_g_r]
+    new_data = np.column_stack(new_data)
+    np.savetxt('SDSS Calibration/spectral_ref.txt', new_data)
+    return(new_data)
 
 def plot_diagram(plts, **kwargs):
     """
