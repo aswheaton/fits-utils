@@ -428,7 +428,10 @@ def align(images, **kwargs):
     max_dif_x, max_dif_y = max_pos_x - min_pos_x, max_pos_y - min_pos_y
     # Create new stack of aligned images using the centroid in each frame.
     aligned_images = []
+    counter = 0
     for image in images:
+        counter += 1
+        print("---Aligning Image {} of {}".format(counter, len(images)), end="\r")
         # Determine region in which to cast the image.
         disp_x, disp_y = max_pos_x - image["XCENT"], max_pos_y - image["YCENT"]
         imsize_x, imsize_y = image["data"].shape[0], image["data"].shape[1]
@@ -460,6 +463,9 @@ def stack(aligned_image_stack, **kwargs):
     Returns:
         stacked_image (dict): new combined single frame.
     """
+
+    print("---Stacking Images---")
+
     # Check that the aligned images to be stacked have matching dimensions.
     for image in aligned_image_stack:
         if image["data"].shape != aligned_image_stack[0]["data"].shape:
@@ -468,6 +474,7 @@ def stack(aligned_image_stack, **kwargs):
 
     # Initialise an empty array into which aligned images are stacked.
     stacked_image_data = np.zeros(aligned_image_stack[0]["data"].shape)
+    counter = 0
 
     if kwargs.get("correct_exposure") == True:
 
@@ -475,6 +482,8 @@ def stack(aligned_image_stack, **kwargs):
         total_frame_count = np.zeros(aligned_image_stack[0]["data"].shape)
 
         for image in aligned_image_stack:
+            counter += 1
+            print("---Stacking Image {} of {}".format(counter, len(aligned_image_stack)), end="\r")
             # Correct the image data for exposure and sum up the fluxes.
             stacked_image_data += image["data"] / image["int_time"]
             # Sum up the number of overlapping frames per pixel column.
@@ -486,6 +495,9 @@ def stack(aligned_image_stack, **kwargs):
         stacked_image_data.astype(dtype=int, copy=False)
         # Create new dictionary containg the average flux (counts/second/pixel).
         exposure_corrected_stack = {"data" : stacked_image_data}
+
+        print("---Stacking Complete---")
+
         return(exposure_corrected_stack)
     else:
         for image in aligned_image_stack:
