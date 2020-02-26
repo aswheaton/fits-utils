@@ -601,18 +601,15 @@ def correct_pleiades(p_data):
     p_data[:,2] = p_data[:,2] - 0.544
     return(p_data)
 
-def get_mag(flux, flux_error, zero_point):
+def get_mag(flux, flux_error, zero_point, int_time):
     """
     Recieves the flux of an object, the error on that flux, and an instrumental
     zero point and returns a zero point corrected magnitude and magnitude error
     for the object.
     """
-    # mag = -2.5 * np.log10(flux) + zero_point
-    # mag_err = (-2.5/flux/np.log(10)) * flux_error
-    # return(mag, mag_err)
 
-    mag = -2.5 * np.log10(flux/600) + zero_point
-    mag_err = (-2.5/flux/600/np.log(10)) * flux_error / 600
+    mag = -2.5 * np.log10(flux/int_time) + zero_point
+    mag_err = (-2.5/flux/int_time/np.log(10)) * flux_error / int_time
     return(mag, mag_err)
 
 def load_cat(filename, zpr, zpg, zpu):
@@ -621,9 +618,9 @@ def load_cat(filename, zpr, zpg, zpu):
     of calatogue fluxes and their errors after zero point correction.
     """
     catalog = np.loadtxt(filename)
-    r_mag, r_err = get_mag(catalog[:,5], catalog[:,6], zpr)
-    g_mag, g_err = get_mag(catalog[:,3], catalog[:,4], zpg)
-    u_mag, u_err = get_mag(catalog[:,7], catalog[:,8], zpu)
+    r_mag, r_err = get_mag(catalog[:,5], catalog[:,6], zpr, 600)
+    g_mag, g_err = get_mag(catalog[:,3], catalog[:,4], zpg, 600)
+    u_mag, u_err = get_mag(catalog[:,7], catalog[:,8], zpu, 800)
     return(r_mag, r_err, g_mag, g_err, u_mag, u_err)
 
 def write_cat(r_mag, g_mag, u_mag, filename):
