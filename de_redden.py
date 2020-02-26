@@ -10,7 +10,7 @@ def main():
     print("zpr = {}, zpg = {}, zpu = {}".format(str(zpr)[:5], str(zpg)[:5], str(zpu)[:5]))
     # Get the zero point corrected catalogue and error.
     r_mag, r_err, g_mag, g_err, u_mag, u_err = load_cat("cat/ugr.cat", zpr, zpg, zpu)
-    # error = (g_err**2 + r_err**2 + u_err**2)**0.5
+    # r_mag, r_err, g_mag, g_err, u_mag, u_err = load_cat("cat/exp_corr/ugr.cat", zpr, zpg, zpu)
 
     pleiades_data = np.loadtxt("pleiades/pleiades_johnson.txt")
     pleiades_data = correct_pleiades(pleiades_data)

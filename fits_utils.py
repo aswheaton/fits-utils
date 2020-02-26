@@ -547,7 +547,7 @@ def reduce_raws(raw_list, master_dark_frame, master_flat_frame, dir):
 
 def trim(filename):
     hdul = fits.open(filename)
-    hdul[0].data = np.array(hdul[0].data[50:-50,50:-50])
+    hdul[0].data = np.array(hdul[0].data[300:-300,300:-300])
     hdul.writeto(filename, overwrite=True)
 
 def get_zero_points(input_airmass):
@@ -607,8 +607,12 @@ def get_mag(flux, flux_error, zero_point):
     zero point and returns a zero point corrected magnitude and magnitude error
     for the object.
     """
-    mag = -2.5 * np.log10(flux) + zero_point
-    mag_err = (-2.5/flux/np.log(10)) * flux_error
+    # mag = -2.5 * np.log10(flux) + zero_point
+    # mag_err = (-2.5/flux/np.log(10)) * flux_error
+    # return(mag, mag_err)
+
+    mag = -2.5 * np.log10(flux/600) + zero_point
+    mag_err = (-2.5/flux/600/np.log(10)) * flux_error / 600
     return(mag, mag_err)
 
 def load_cat(filename, zpr, zpg, zpu):

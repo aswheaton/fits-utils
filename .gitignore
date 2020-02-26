@@ -105,5 +105,8 @@ venv.bak/
 
 # Folders to ignore.
 dat/*
-sci/*
 tmp/*
+sci/*
+sta/*
+cat/*
+plots/*

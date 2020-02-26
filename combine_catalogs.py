@@ -67,8 +67,8 @@ def match_sources(catalog_1, catalog_2):
     """
     new_catalog = []
     for source in catalog_1:
-        index = np.where((np.isclose(catalog_2[:,1],source[1])) &
-                         (np.isclose(catalog_2[:,2],source[2])))[0]
+        index = np.where((np.isclose(catalog_2[:,1],source[1],rtol=1e-05, atol=1e-08)) &
+                         (np.isclose(catalog_2[:,2],source[2],rtol=1e-05, atol=1e-08)))[0]
         if np.size(index) != 0:
             new_catalog.append(np.append(source, catalog_2[index[0], 3:5]))
     new_catalog = np.vstack(new_catalog)
