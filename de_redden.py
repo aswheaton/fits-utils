@@ -7,7 +7,7 @@ def main():
     # Central wavelength of filters, in micrometers.
     r_lambda, g_lambda, u_lambda = 0.6231, 0.4770, 0.3543
     # Zero points from zero-point-calculator.
-    zpr, zpg, zpu = get_zero_points(1.04) # Rory's ZP: 30.236, 29.719, 27.075
+    zpr, zpg, zpu = get_zero_points(1.04)
     print("zpr = {}, zpg = {}, zpu = {}".format(str(zpr)[:5], str(zpg)[:5], str(zpu)[:5]))
     # Get the zero point corrected catalogue and error.
     r_mag, r_err, g_mag, g_err, u_mag, u_err = load_cat(cat_dir+"ugr.cat", zpr, zpg, zpu)
@@ -16,7 +16,6 @@ def main():
     pleiades_data = correct_pleiades(pleiades_data)
     indices = np.where(pleiades_data[:,0] < 0.5)[0]
     reduced_data = pleiades_data[indices,:]
-    # pleiades_coeffs = np.flip(np.polyfit(pleiades_data[:,0], pleiades_data[:,1], 4),axis=0)
     pleiades_coeffs = np.flip(np.polyfit(reduced_data[:,0], reduced_data[:,1], 4),axis=0)
     # Calculate the colour excess.
     gr_excess = g_mag - r_mag # x-axis variable
