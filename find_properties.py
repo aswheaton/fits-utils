@@ -1,7 +1,4 @@
-import numpy as np
-import matplotlib.pyplot as plt
 from fits_utils import *
-from scipy import optimize
 
 # def get_errors_distance(err_r,err_g,cov_pl,cov_m52,param_pl,param_m52,g_r_m52,dist_mod):
 #     err_g_r=np.sqrt(err_r**2 +err_g**2)
@@ -76,8 +73,10 @@ def new_get_age(flux, distance):
     return(age)
 
 def get_age_2_electric_boogaloo(flux, distance):
+    # Calculate solar luminiosty using absolute magnitudes.
     sol_flux_r = mag_to_flux(4.65)
     sol_lum_r = sol_flux_r * 4.0 * np.pi * (10*meters_per_parsec)**2
+    # Calculate solar luminosity using apparent magnitudes.
     # sol_flux_r = mag_to_flux(-26.93)
     # sol_lum_r = sol_flux_r * 4.0 * np.pi * AU_meters**2
     luminosity = flux * 4.0 * np.pi * distance**2
@@ -130,7 +129,7 @@ def main():
     print("Distance to the cluster: {} pc.".format(distance_parsecs))
     print("Age of the cluster: {} myrs.".format(cluster_age/1000000))
 
-    #err_distance=get_errors_distance(err_r,err_g,cov_pl,cov_m52,param_pl,param_m52,reduced_gr_excess,dist_mod)
+    #err_distance=get_errors_distance(err_r,err_g,cov_pl,cov_m52,param_pl,param_m52,cor_g_r_m52,dist_mod)
     #err_age=get_errors_age(err_zp_r,err_r,zpr,r_min,err_distance,r_min_flux,distance,r_min_lum,r_min_mass)
     #NOTE: This code doesnt currently possess a err_zp_r, err_r, err_g need to be added from updated catalogue & from zp calc
 
