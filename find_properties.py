@@ -3,9 +3,6 @@ import matplotlib.pyplot as plt
 from fits_utils import *
 from scipy import optimize
 
-#zpu=27.075
-#zpg=29.719
-zpr= 23
 solar_lum= 3.828E+26
 solar_mass= 1.99E+30
 h=6.63E-34
@@ -14,23 +11,17 @@ cen_wav_r= 658E-9
 dist_pl_pc=150
 
 
-def get_abs_mag(app_mag):
-    return(app_mag-5*np.log10(dist_pl_pc/10))
+def absolute_magnitude(apparent_mag, distance):
+    absolute_magnitude = apparent_mag - 5.0 * np.log10(distance / 10.0)
+    return(absolute_magnitude)
 
-def get_fit(f,x,y):
-    param,cov= optimize.curve_fit(f,x,y,p0=None)
-    return(param,cov)
-
-def polynomial(x,a,b,c,d,e):
-    return(a*x**4 +b*x**3 +c*x**2 +d*x +e)
-
-def mag_convert(m,zp):
+def mag_to_flux(m,zp):
     counts= 10**((zp-m)/2.5)
     energy_photon=h*c/cen_wav_r
     flux=counts*energy_photon
     return(flux)
 
-def remove_outlie(g_r,r):
+def remove_outliers(g_r,r):
     index= np.where((g_r<-0.2) & (g_r>-0.7))[0]
     return(g_r[index],r[index])
 
@@ -60,30 +51,34 @@ def get_distance_2(g_r,r,param_pl):
     return(distance)
 
 
-def get_distance(param,param_pl,color_gr,g_r_pl):
-    start= np.amin(color_gr)
-    stop=np.amax(color_gr)
-    shift_list=[]
-    for x in np.linspace(start,stop,num=1000):
-        y_pl=polynomial(x,*param_pl)
-        y_m52= polynomial(x,*param)
-        y_diff=abs(y_pl -y_m52)
-        shift_list.append(y_diff)
+def distance_modulus(params1, params2):
+    """
+        Returns the average distance between two polynomial curves over a
+        particular range. (Hard coded to 0.2 < x < 0.7 for now.)
 
-    dist_mod=10.7#np.mean(shift_list)
-    print(dist_mod)
-    exponent=((dist_mod/5)+1)
-    distance= 10**(exponent)
-    return(distance,dist_mod)
+        Args:
+            params1: list of polynomial coefficients for a curve in ascending order
+            params2: list of polynomial coefficients for a second curve in ascending order
+        Returns:
+            average_distance: float of average distance between the two curves
+    """
 
-def get_age(flux,distnace):
-    r_min_lum=flux*(4*np.pi*(distance**2))
-    r_min_mass= (r_min_lum/solar_lum)**(1/3)
-    age= (r_min_mass**-2.5)* (10**10)
-    age_mil= age/1000000
-    return(age_mil)
+    x_range = np.linspace(0.2, 0.7, 1000)
+    average_distance = np.sum(abs(polynomial(x_range,params1)-polynomial(x_range, params2))) / 1000
+    return(average_distance)
 
+def get_age(flux, distance):
+    """
+        James write a docstring please <3
+        Method to determine the age of a source based on the flux. Flux is
+        converted to a luminosity using the equation L = 4 * pi * (d**2) * F
 
+    """
+    # Get the age of a star from the mass luminosity relationship.
+    # Constant formula: (7.875e-04 * c**2 * solar mass) / (solar luminosity)**(1/3)
+    luminosity = flux * 4.0 * np.pi * distance**2
+    age = 1.941499183e35 * luminosity**(-2/3)
+    return(age)
 
 def get_errors_distance(err_r,err_g,cov_pl,cov_m52,param_pl,param_m52,g_r_m52,dist_mod):
     err_g_r=np.sqrt(err_r**2 +err_g**2)
@@ -104,41 +99,55 @@ def get_errors_age(err_zp_r,err_r,zpr,r_mag,err_distance,flux,distance,lum,mass)
     return(err_age)
 
 def main():
-    data=np.loadtxt("pleiades/pleiades_johnson.txt")
-    data=correct_pleiades(data)
-    catalog = np.loadtxt('cat/de_reddened_gr_r.cat')
-    r_mag = catalog[:,1]
-    color_gr = catalog[:,0]
-    g_r_pl=data[:,0]
-    r_pl=data[:,2]
-    r_pl_abs= get_abs_mag(r_pl)
-    cor_g_r_pl,cor_r_abs_pl= remove_outlie(g_r_pl,r_pl_abs)
-    cor_g_r_m52,cor_r_m52= remove_outlie(color_gr,r_mag)
-    param_pl,cov_pl= get_fit(polynomial,cor_g_r_pl,cor_r_abs_pl)
-    param_m52,cov_m52= get_fit(polynomial,cor_g_r_m52,cor_r_m52)
-    dist_pc,dist_mod=get_distance(param_m52,param_pl,cor_g_r_m52,cor_g_r_pl)
-    #dist_pc,dist_mod=get_distance_2(cor_g_r_m52,cor_r_m52,param_pl)
-    dist_rounded=np.round(dist_pc,decimals=3)
-    print("The distance to Messier 52 is: " +str(dist_rounded)+" parsecs.")
-    distance=(3.08567782E+16)*dist_pc
-    r_min=np.min(cor_r_m52)
-    r_min_flux=mag_convert(r_min,zpr)
-    age_mil=get_age(r_min_flux,distance)
-    print("The age of Messier 52 is: "+str(age_mil)+" Million years old.")
-    #err_distance=get_errors_distance(err_r,err_g,cov_pl,cov_m52,param_pl,param_m52,cor_g_r_m52,dist_mod)
+
+    # Catalogue directory.
+    cat_dir = "cat/cumulative_trim/"
+    # Central wavelength of filters, in micrometers.
+    r_lambda, g_lambda, u_lambda = 0.6231, 0.4770, 0.3543
+    # Zero points from zero-point-calculator.
+    zpr, zpg, zpu = get_zero_points(1.04)
+    # Load in the pleiades data and limit it to reasonable values for fitting.
+    pleiades_data = np.loadtxt("pleiades/pleiades_johnson.txt")
+    pleiades_data = correct_pleiades(pleiades_data)
+    reduced_indices = np.where((pleiades_data[:,0] > 0.2) & (pleiades_data[:,0] < 0.7))[0]
+    reduced_gr_pleiades = pleiades_data[reduced_indices,0]
+    reduced_r_pleiades = absolute_magnitude(pleiades_data[reduced_indices,2],dist_pl_pc)
+    # Load in the cluster data and limit it to reasonable values for fitting.
+    gr_r_catalog = np.loadtxt(cat_dir+"de_reddened_gr_r.cat")
+    gr_excess, r_mag = gr_r_catalog[:,0], gr_r_catalog[:,1]
+    reduced_gr_excess,reduced_r_mag= remove_outliers(gr_excess,r_mag)
+
+    # param_pleiades, cov_pl = get_fit(polynomial, reduced_gr_pleiades, reduced_r_pleiades)
+    # params, covariance = get_fit(polynomial, reduced_gr_excess, reduced_r_mag)
+
+    # Fit a fourth order polynomial to both datasets.
+    params_pleiades, cov_pleiades = np.polyfit(reduced_gr_pleiades, reduced_r_pleiades, deg=4, cov=True)
+    params_pleiades = np.flip(params_pleiades)
+    params, cov = np.polyfit(reduced_gr_excess, reduced_r_mag, deg=4, cov=True)
+    params = np.flip(params)
+
+    # Calculate the distance modulus between the two fits and
+    mean_distance = distance_modulus(params_pleiades, params)
+    distance_parsecs = 10.0**((mean_distance / 5) + 1)
+    distance_meters= 3.08567782e16 * distance_parsecs
+
+    min_r_flux = mag_to_flux(np.min(reduced_r_mag), zpr)
+    cluster_age = get_age(min_r_flux, distance_meters)
+
+    print("Distance to the cluster: {} pc.".format(distance_parsecs))
+    print("Age of the cluster: {} mya.".format(cluster_age / 1000000.0))
+
+    #err_distance=get_errors_distance(err_r,err_g,cov_pl,cov_m52,param_pl,param_m52,reduced_gr_excess,dist_mod)
     #err_age=get_errors_age(err_zp_r,err_r,zpr,r_min,err_distance,r_min_flux,distance,r_min_lum,r_min_mass)
     #NOTE: This code doesnt currently possess a err_zp_r, err_r, err_g need to be added from updated catalogue & from zp calc
 
-    x=np.linspace(np.amin(cor_g_r_m52),np.amax(cor_g_r_m52),1000)
+    x_range=np.linspace(np.amin(reduced_gr_excess),np.amax(reduced_gr_excess), 1000)
 
-    plt.plot(cor_g_r_pl,cor_r_abs_pl,'o',label="Pleiades literature")
-    plt.plot(cor_g_r_m52,cor_r_m52,'o',label="M52 Data(Uncorrected)")
-    plt.plot(x,polynomial(x,*param_pl),'-',label="Pleiades")
-    plt.plot(x,polynomial(x,*param_m52),'-',label="M52")
-    plt.gca().invert_yaxis()
-    plt.xlabel("G-R Colour")
-    plt.ylabel("R Magnitude")
-    plt.legend()
-    plt.show()
+    dict = {"Pleiades"     : (reduced_gr_pleiades, reduced_r_pleiades, 'o'),
+            "M52"          : (reduced_gr_excess, reduced_r_mag, 'o'),
+            "Pleiades Fit" : (x_range, polynomial(x_range, params_pleiades), '-'),
+            "M52 Fit"      : (x_range, polynomial(x_range, params), '-')
+            }
+    plot_diagram(dict, xlabel="G-R Colour", ylabel="R Magnitude")
 
 main()
