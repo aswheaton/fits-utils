@@ -63,8 +63,8 @@ def distance_modulus(params1, params2):
             average_distance: float of average distance between the two curves
     """
 
-    x_range = np.linspace(0.2, 0.7, 1000)
-    average_distance = np.sum(abs(polynomial(x_range,params1)-polynomial(x_range, params2))) / 1000
+    x_range = np.linspace(-0.7, -0.2, 1000)
+    average_distance = np.mean(abs(polynomial(x_range,params1)-polynomial(x_range, params2)))
     return(average_distance)
 
 def get_age(flux, distance):
@@ -109,7 +109,7 @@ def main():
     # Load in the pleiades data and limit it to reasonable values for fitting.
     pleiades_data = np.loadtxt("pleiades/pleiades_johnson.txt")
     pleiades_data = correct_pleiades(pleiades_data)
-    reduced_indices = np.where((pleiades_data[:,0] > 0.2) & (pleiades_data[:,0] < 0.7))[0]
+    reduced_indices = np.where((pleiades_data[:,0] > -0.7) & (pleiades_data[:,0] < -0.2))[0]
     reduced_gr_pleiades = pleiades_data[reduced_indices,0]
     reduced_r_pleiades = absolute_magnitude(pleiades_data[reduced_indices,2],dist_pl_pc)
     # Load in the cluster data and limit it to reasonable values for fitting.
@@ -128,6 +128,7 @@ def main():
 
     # Calculate the distance modulus between the two fits and
     mean_distance = distance_modulus(params_pleiades, params)
+    print(mean_distance)
     distance_parsecs = 10.0**((mean_distance / 5) + 1)
     distance_meters= 3.08567782e16 * distance_parsecs
 
@@ -148,6 +149,6 @@ def main():
             "Pleiades Fit" : (x_range, polynomial(x_range, params_pleiades), '-'),
             "M52 Fit"      : (x_range, polynomial(x_range, params), '-')
             }
-    plot_diagram(dict, xlabel="G-R Colour", ylabel="R Magnitude")
+    plot_diagram(dict, xlabel="G-R Colour", ylabel="R Magnitude", legend=True)
 
 main()
