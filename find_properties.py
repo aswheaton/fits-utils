@@ -3,35 +3,6 @@ import matplotlib.pyplot as plt
 from fits_utils import *
 from scipy import optimize
 
-# def remove_outliers(g_r,r):
-#     index= np.where((g_r<-0.2) & (g_r>-0.7))[0]
-#     return(g_r[index],r[index])
-#
-# def get_distance_2(g_r,r,param_pl):
-#     #USING BIN METHOD
-#     cut_off=np.mean(g_r)
-#     index_bin_1= np.where((g_r>np.amin(g_r))&(g_r<cut_off))[0]
-#     index_bin_2= np.where((g_r>cut_off)&(g_r<np.amax(g_r)))[0]
-#     bin_1_g_r= g_r[index_bin_1]
-#     bin_2_g_r= g_r[index_bin_2]
-#     bin_1_r=r[index_bin_1]
-#     bin_2_r=r[index_bin_2]
-#     mean_bin_1_r=np.mean(bin_1_r)
-#     mean_bin_2_r=np.mean(bin_2_r)
-#     mean_bin_1_g_r=np.mean(bin_1_g_r) #NOT CENTRAL VALUE OF BIN
-#     mean_bin_2_g_r=np.mean(bin_2_g_r) #NOT CENTRAL VALUE OF BIN
-#     bin_1_r_pl=polynomial(mean_bin_1_g_r,*param_pl)
-#     bin_2_r_pl=polynomial(mean_bin_2_g_r,*param_pl)
-#     r_bin_1_diff=abs(bin_1_r_pl-mean_bin_1_r)
-#     r_bin_2_diff=abs(bin_2_r_pl- mean_bin_2_r)
-#     dist_mod=(r_bin_1_diff+r_bin_2_diff)/2
-#     print(dist_mod)
-#     exponent=((dist_mod/5)+1)
-#     distance= 10**(exponent)
-#     #err_dist_mod=
-#     #err_distance=(2**((dist_mod/5)+1)*np.log(10)*(5**(dist_mod/5)))*err_dist_mod
-#     return(distance)
-
 # def get_errors_distance(err_r,err_g,cov_pl,cov_m52,param_pl,param_m52,g_r_m52,dist_mod):
 #     err_g_r=np.sqrt(err_r**2 +err_g**2)
 #     dm52_dgr=(4*param_m52[0]*(g_r_m52**3) +3*param_m52[1]*(g_r_m52**2) + 2*param_m52[2]*(g_r_m52) +param_m52[3])
@@ -131,9 +102,6 @@ def main():
     reduced_indices = np.where((gr_excess > lower_colour) & (gr_excess < upper_colour))[0]
     reduced_gr_excess = gr_excess[reduced_indices]
     reduced_r_mag = r_mag[reduced_indices]
-
-    # param_pleiades, cov_pl = get_fit(polynomial, reduced_gr_pleiades, reduced_r_pleiades)
-    # params, covariance = get_fit(polynomial, reduced_gr_excess, reduced_r_mag)
 
     # Fit a fourth order polynomial to both datasets.
     params_pleiades, cov_pleiades = np.polyfit(reduced_gr_pleiades, reduced_r_pleiades, deg=4, cov=True)
