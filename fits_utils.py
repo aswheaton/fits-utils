@@ -745,6 +745,27 @@ def convert_spectral_type(data):
     np.savetxt('SDSS Calibration/spectral_ref.txt', new_data)
     return(new_data)
 
+def remove_intervening_stars(catalog):
+    """
+        Method for removing intervening and background stars from a catalog
+        using the data gathered from the GAIA survey.
+
+        Args:
+            catalog (ndarray): Catalog of stars containing flux, RA, and DEC.
+        Returns:
+            new_catalog (ndarray): Catalog of stars excluding any stars that do
+                not appear in the GAIA survey catalog.
+    """
+    new_catalog = []
+    gaia_catalog = np.loadtxt("cat/m52_gaia.txt")
+    for source in catalog:
+        index = np.where((np.isclose(gaia_catalog[:,1],source[1],rtol=4e-05, atol=1e-08)) &
+                         (np.isclose(gaia_catalog[:,2],source[2],rtol=4e-05, atol=1e-08)))[0]
+        if np.size(index) != 0:
+            new_catalog.append(source)
+    new_catalog = np.array(new_catalog)
+    return(new_catalog)
+
 def plot_diagram(plts, **kwargs):
     """
     Method for plotting a HR diagram. Uses matplotlib to create a HR diagram
