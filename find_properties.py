@@ -30,7 +30,7 @@ def mag_convert(m,zp):
     flux=counts*energy_photon
     return(flux)
 
-def remove_outlie(g_r,r):
+def remove_outlier(g_r,r):
     index= np.where((g_r<-0.2) & (g_r>-0.7))[0]
     return(g_r[index],r[index])
 
@@ -70,13 +70,13 @@ def get_distance(param,param_pl,color_gr,g_r_pl):
         y_diff=abs(y_pl -y_m52)
         shift_list.append(y_diff)
 
-    dist_mod=10.7#np.mean(shift_list)
+    dist_mod=np.mean(shift_list)
     print(dist_mod)
     exponent=((dist_mod/5)+1)
     distance= 10**(exponent)
     return(distance,dist_mod)
 
-def get_age(flux,distnace):
+def get_age(flux,distance):
     r_min_lum=flux*(4*np.pi*(distance**2))
     r_min_mass= (r_min_lum/solar_lum)**(1/3)
     age= (r_min_mass**-2.5)* (10**10)
@@ -106,14 +106,14 @@ def get_errors_age(err_zp_r,err_r,zpr,r_mag,err_distance,flux,distance,lum,mass)
 def main():
     data=np.loadtxt("pleiades/pleiades_johnson.txt")
     data=correct_pleiades(data)
-    catalog = np.loadtxt('cat/de_reddened_gr_r.cat')
+    catalog = np.loadtxt('cat/cumulative_trim/de_reddened_gr_r.cat')
     r_mag = catalog[:,1]
     color_gr = catalog[:,0]
     g_r_pl=data[:,0]
     r_pl=data[:,2]
     r_pl_abs= get_abs_mag(r_pl)
-    cor_g_r_pl,cor_r_abs_pl= remove_outlie(g_r_pl,r_pl_abs)
-    cor_g_r_m52,cor_r_m52= remove_outlie(color_gr,r_mag)
+    cor_g_r_pl,cor_r_abs_pl= remove_outlier(g_r_pl,r_pl_abs)
+    cor_g_r_m52,cor_r_m52= remove_outlier(color_gr,r_mag)
     param_pl,cov_pl= get_fit(polynomial,cor_g_r_pl,cor_r_abs_pl)
     param_m52,cov_m52= get_fit(polynomial,cor_g_r_m52,cor_r_m52)
     dist_pc,dist_mod=get_distance(param_m52,param_pl,cor_g_r_m52,cor_g_r_pl)
