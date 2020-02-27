@@ -4,7 +4,7 @@ into one catalog.
 
 """
 
-import numpy as np
+from fits_utils import *
 
 def read_catalog(filename):
     """Function for reading in the data from a catalog.
@@ -26,7 +26,7 @@ def read_catalog(filename):
     catalog[:] = catalog[:, index]
     return catalog
 
-def create_catalog(catalog, filename):
+def create_catalog(catalog, filename, cat_dir):
     """Method for creating a new catalog file from an ndarray.
 
     Takes an ndarray and writes it out to a new catalog file with a '.cat'
@@ -48,7 +48,7 @@ def create_catalog(catalog, filename):
                             '[6] : FLUXERR_APER_R',
                             '[7] : FLUX_APER_U',
                             '[8] : FLUXERR_APER_U'])
-    np.savetxt('cat/{}.cat'.format(filename), catalog, header=header_txt)
+    np.savetxt(cat_dir+'{}.cat'.format(filename), catalog, header=header_txt)
 
 def match_sources(catalog_1, catalog_2):
     """Function for matching sources in two catalogs.
@@ -75,19 +75,22 @@ def match_sources(catalog_1, catalog_2):
     return new_catalog
 
 def main():
+    #: str: catlogue directory
+    cat_dir = "cat/cumulative_trim/"
     #: tuple: Catalog bands. Should just be g, r, u.
     bands = ('g', 'r', 'u')
     #: dict: For storing the raw catalog ndarrays.
     catalog = {}
     for band in bands:
         #: Store the catalogs.
-        catalog[band] = read_catalog('cat/{}.cat'.format(band))
+        catalog[band] = read_catalog(cat_dir+'{}.cat'.format(band))
     #: ndarray: New merged catalog for the g and r bands.
     gr_catalog = match_sources(catalog['g'], catalog['r'])
+    gr_catalog = remove_intervening_stars(gr_catalog)
     #: ndarray: New merged catalog for all bands.
     ugr_catalog = match_sources(gr_catalog, catalog['u'])
-    create_catalog(ugr_catalog, 'ugr')
-    create_catalog(gr_catalog, 'gr')
+    create_catalog(ugr_catalog, 'ugr', cat_dir)
+    create_catalog(gr_catalog, 'gr', cat_dir)
 
 if __name__ == '__main__':
     main()
