@@ -50,12 +50,12 @@ from scipy import optimize
 #     err_age= (10**10)*-2.5*(mass**-3.5)*err_mass
 #     return(err_age)
 
-solar_lum= 3.828E+26
-solar_mass= 1.99E+30
-h=6.63E-34
-c=3E+8
-cen_wav_r= 658E-9
-dist_pl_pc=150
+solar_lum = 3.828E+26
+solar_mass = 1.99E+30
+h = 6.63E-34
+c = 3E+8
+cen_wav_r = 658E-9
+dist_pl_pc = 150
 
 def absolute_magnitude(apparent_mag, distance):
     absolute_magnitude = apparent_mag - 5.0 * np.log10(distance / 10.0)
@@ -83,24 +83,16 @@ def distance_modulus(params1, params2):
     average_distance = np.mean(abs(polynomial(x_range,params1)-polynomial(x_range, params2)))
     return(average_distance)
 
-def legacy_get_age(flux, distance):
-    r_min_lum = flux * (4 * np.pi * distance**2)
-    r_min_mass = (r_min_lum / solar_lum)**(1/3)
-    age = 1e11 * r_min_mass**(-5/2)
-    return(age)
-
-def get_age(flux, distance):
+def new_get_age(flux, distance):
     """
         James write a docstring please <3
         Method to determine the age of a source based on the flux. Flux is
         converted to a luminosity using the equation L = 4 * pi * (d**2) * F
-
     """
     # Get the age of a star from the mass luminosity relationship.
     # Constant formula: (7.875e-04 * c**2 * solar mass) / (solar luminosity)**(1/3)
     luminosity = flux * 4.0 * np.pi * distance**2
-    # age = 1.941499183e35 * luminosity**(-2/3)
-    age = 1e11 / (luminosity/solar_lum)**(3/4)
+    age = 1E+10 / (luminosity / solar_lum)**(3/4)
     return(age)
 
 def main():
@@ -139,11 +131,11 @@ def main():
     distance_parsecs = 10.0**((mean_distance / 5) + 1)
     distance_meters= 3.08567782e16 * distance_parsecs
 
-    min_r_flux = mag_to_flux(np.min(reduced_r_mag), zpr)
-    cluster_age = legacy_get_age(min_r_flux, distance_meters)
+    max_r_flux = mag_to_flux(np.min(reduced_r_mag), zpr)
+    cluster_age = new_get_age(max_r_flux, distance_meters)
 
     print("Distance to the cluster: {} pc.".format(distance_parsecs))
-    print("Age of the cluster: {} myrs.".format(cluster_age / 1000000.0))
+    print("Age of the cluster: {} myrs.".format(cluster_age/1000000))
 
     #err_distance=get_errors_distance(err_r,err_g,cov_pl,cov_m52,param_pl,param_m52,reduced_gr_excess,dist_mod)
     #err_age=get_errors_age(err_zp_r,err_r,zpr,r_min,err_distance,r_min_flux,distance,r_min_lum,r_min_mass)
