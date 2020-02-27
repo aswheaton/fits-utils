@@ -51,20 +51,23 @@ from scipy import optimize
 #     return(err_age)
 
 solar_lum = 3.828E+26
-solar_mass = 1.99E+30
-h = 6.63E-34
+solar_mass = 1.989E+30
+h = 6.62607015E-34
 c = 3E+8
-cen_wav_r = 658E-9
+lambda_r = 6.231E-7
 dist_pl_pc = 150
+AU_meters = 1.496E+11
+meters_per_parsec = 3.08567782E+16
+lower_colour, upper_colour = -0.6, -0.2
 
 def absolute_magnitude(apparent_mag, distance):
     absolute_magnitude = apparent_mag - 5.0 * np.log10(distance / 10.0)
     return(absolute_magnitude)
 
-def mag_to_flux(m,zp):
-    counts= 10**((zp-m)/2.5)
-    energy_photon=h*c/cen_wav_r
-    flux=counts*energy_photon
+def mag_to_flux(magnitude):
+    counts_per_sec = 10**(- magnitude / 2.5)
+    energy_photon = h * c / lambda_r
+    flux = counts_per_sec * energy_photon
     return(flux)
 
 def distance_modulus(params1, params2):
@@ -79,9 +82,15 @@ def distance_modulus(params1, params2):
             average_distance: float of average distance between the two curves
     """
 
-    x_range = np.linspace(-0.7, -0.2, 1000)
+    x_range = np.linspace(lower_colour, upper_colour, 1000)
     average_distance = np.mean(abs(polynomial(x_range,params1)-polynomial(x_range, params2)))
     return(average_distance)
+
+def legacy_get_age(flux,distance):
+    r_min_lum=flux*(4*np.pi*(distance**2))
+    r_min_mass= (r_min_lum/solar_lum)**(1/3)
+    age= (r_min_mass**-2.5)* (10**10)
+    return(age)
 
 def new_get_age(flux, distance):
     """
@@ -95,24 +104,31 @@ def new_get_age(flux, distance):
     age = 1E+10 / (luminosity / solar_lum)**(3/4)
     return(age)
 
+def get_age_2_electric_boogaloo(flux, distance):
+    sol_flux_r = mag_to_flux(4.65)
+    sol_lum_r = sol_flux_r * 4.0 * np.pi * (10*meters_per_parsec)**2
+    # sol_flux_r = mag_to_flux(-26.93)
+    # sol_lum_r = sol_flux_r * 4.0 * np.pi * AU_meters**2
+    luminosity = flux * 4.0 * np.pi * distance**2
+    print("Solar luminosity r: ", sol_lum_r)
+    print("Cluster member luminosity r: ", luminosity)
+    age = 9E+9 * (luminosity/sol_lum_r)**(-0.6875)
+    return(age)
+
 def main():
 
     # Catalogue directory.
     cat_dir = "cat/cumulative_trim/"
-    # Central wavelength of filters, in micrometers.
-    r_lambda, g_lambda, u_lambda = 0.6231, 0.4770, 0.3543
-    # Zero points from zero-point-calculator.
-    zpr, zpg, zpu = get_zero_points(1.04)
     # Load in the pleiades data and limit it to reasonable values for fitting.
     pleiades_data = np.loadtxt("pleiades/pleiades_johnson.txt")
     pleiades_data = correct_pleiades(pleiades_data)
-    reduced_indices = np.where((pleiades_data[:,0] > -0.7) & (pleiades_data[:,0] < -0.2))[0]
+    reduced_indices = np.where((pleiades_data[:,0] > lower_colour) & (pleiades_data[:,0] < upper_colour))[0]
     reduced_gr_pleiades = pleiades_data[reduced_indices,0]
     reduced_r_pleiades = absolute_magnitude(pleiades_data[reduced_indices,2],dist_pl_pc)
     # Load in the cluster data and limit it to reasonable values for fitting.
     gr_r_catalog = np.loadtxt(cat_dir+"de_reddened_gr_r.cat")
     gr_excess, r_mag = gr_r_catalog[:,0], gr_r_catalog[:,1]
-    reduced_indices = np.where((gr_excess > -0.7) & (gr_excess < -0.2))[0]
+    reduced_indices = np.where((gr_excess > lower_colour) & (gr_excess < upper_colour))[0]
     reduced_gr_excess = gr_excess[reduced_indices]
     reduced_r_mag = r_mag[reduced_indices]
 
@@ -127,12 +143,21 @@ def main():
 
     # Calculate the distance modulus between the two fits and
     mean_distance = distance_modulus(params_pleiades, params)
-    print(mean_distance)
     distance_parsecs = 10.0**((mean_distance / 5) + 1)
-    distance_meters= 3.08567782e16 * distance_parsecs
+    distance_meters= meters_per_parsec * distance_parsecs
 
-    max_r_flux = mag_to_flux(np.min(reduced_r_mag), zpr)
-    cluster_age = new_get_age(max_r_flux, distance_meters)
+    print("Distance Modulus: {}".format(mean_distance))
+    print("Max Member Apparent Magnitude: {}".format(np.min(r_mag)))
+    print("Corresponding flux: {}".format(mag_to_flux(np.min(r_mag))))
+    print("Max Member Absolute Magnitude: {}".format(absolute_magnitude(np.min(r_mag),distance_parsecs)))
+
+    max_r_flux = mag_to_flux(np.min(r_mag))
+    cluster_age = get_age_2_electric_boogaloo(max_r_flux, distance_meters)
+
+    # distances = np.linspace(8.0,20.0,1000)
+    # plt.plot(distances, new_get_age(max_r_flux, distances)/1000000, 'b-')
+    # plt.plot(distances, legacy_get_age(max_r_flux, distances), 'r-')
+    # plt.show()
 
     print("Distance to the cluster: {} pc.".format(distance_parsecs))
     print("Age of the cluster: {} myrs.".format(cluster_age/1000000))
@@ -141,13 +166,13 @@ def main():
     #err_age=get_errors_age(err_zp_r,err_r,zpr,r_min,err_distance,r_min_flux,distance,r_min_lum,r_min_mass)
     #NOTE: This code doesnt currently possess a err_zp_r, err_r, err_g need to be added from updated catalogue & from zp calc
 
-    x_range=np.linspace(np.amin(reduced_gr_excess),np.amax(reduced_gr_excess), 1000)
+    x_range=np.linspace(lower_colour,upper_colour, 1000)
 
     dict = {"Pleiades"     : (reduced_gr_pleiades, reduced_r_pleiades, 'o'),
             "M52"          : (reduced_gr_excess, reduced_r_mag, 'o'),
             "Pleiades Fit" : (x_range, polynomial(x_range, params_pleiades), '-'),
             "M52 Fit"      : (x_range, polynomial(x_range, params), '-')
             }
-    plot_diagram(dict, xlabel="G-R Colour", ylabel="R Magnitude", legend=True)
+    plot_diagram(dict, x_label="G-R Colour", y_label="R Magnitude", legend=True)
 
 main()
