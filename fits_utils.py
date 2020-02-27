@@ -650,7 +650,7 @@ def write_cat(r_mag, g_mag, u_mag, filename):
                             "[8] : FLUXERR_APER_U"])
     np.savetxt("cat/{}.cat".format(filename), catalog, header=header_txt)
 
-def polynomial(x, coeffs):
+def polynomial(x, x_sq_err, coeffs, cov_sq):
     """
     Returns the corresponding y value for x, given the coefficients for an
     nth-order polynomial as a list descending in order.
@@ -658,21 +658,24 @@ def polynomial(x, coeffs):
     # Hard code for 4th order, better to use general case.
     # y = A*x**4 + B*x**3 + C*x**2 + D*x**1 + E*x**0)
     y = 0.0
+    y_err = 0.0
     for n in range(len(coeffs)):
         y += coeffs[n] * x ** n
-    return(y)
+        y_sq_err += (n * coeffs[n] * (x**(n-1)))**2 * x_sq_err + (x**2n) * cov_sq[n]
 
-def get_r(red_x, red_y, hyp_x, hyp_y, func, coeffs):
-    # Slope of the DE-reddening vector.
-    slope = (hyp_y - red_y) / (hyp_x - red_x)
-    x_vals = np.linspace(red_x, hyp_x, 1000)
-    y_val_vec = red_y - slope * (red_x - x_vals)
-    y_val_cur = polynomial(x_vals, coeffs)
-    y_diffs = abs(y_val_vec - y_val_cur)
-    index = np.where(y_diffs == np.amin(y_diffs))[0]
-    x_int, y_int = x_vals[index], y_val_cur[index]
-    r = ((hyp_x-x_int)**2 + (hyp_y-y_int)**2)**0.5
-    return(r)
+    return(y, y_sq_err)
+
+# def get_r(red_x, red_y, hyp_x, hyp_y, func, coeffs, cov):
+#     # Slope of the DE-reddening vector.
+#     slope = (hyp_y - red_y) / (hyp_x - red_x)
+#     x_vals = np.linspace(red_x, hyp_x, 1000)
+#     y_val_vec = red_y - slope * (red_x - x_vals)
+#     y_val_cur = polynomial(x_vals, x_sq_err=0.0, coeffs, cov)
+#     y_diffs = abs(y_val_vec - y_val_cur)
+#     index = np.where(y_diffs == np.amin(y_diffs))[0]
+#     x_int, y_int = x_vals[index], y_val_cur[index]
+#     r = ((hyp_x-x_int)**2 + (hyp_y-y_int)**2)**0.5
+#     return(r)
 
 def get_chi_squ(x, y, func, coeffs, error):
     """
