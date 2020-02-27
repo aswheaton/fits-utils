@@ -16,7 +16,10 @@ def main():
     pleiades_data = correct_pleiades(pleiades_data)
     indices = np.where(pleiades_data[:,0] < 0.5)[0]
     reduced_data = pleiades_data[indices,:]
-    pleiades_coeffs = np.flip(np.polyfit(reduced_data[:,0], reduced_data[:,1], 4),axis=0)
+    pleiades_coeffs, cov = np.polyfit(reduced_data[:,0], reduced_data[:,1], deg=4, cov=True)
+    # print(pleiades_coeffs)
+    # print(cov)
+    pleiades_coeffs = np.flip(pleiades_coeffs, axis=0)
     # Calculate the colour excess.
     gr_excess = g_mag - r_mag # x-axis variable
     ug_excess = u_mag - g_mag # y-axis variable
@@ -40,10 +43,14 @@ def main():
     y_cept = mp_y - cardelli_slope*mp_x
 
     # Iterate over reasonable range of values for the reddening vector magnitude.
-    for red_vec_mag in np.linspace(0.8, 1.6, 1000):
+    start, stop, steps = 0.8, 1.6, 1000
+    for red_vec_mag in np.linspace(start, stop, steps):
+        squ_err_mag = ((stop - start) / steps)**2
         # Separate reddening vector into components in colour-colour space.
         red_vec_x = (red_vec_mag**2 / (1 + cardelli_slope**2))**0.5
         red_vec_y = (red_vec_mag**2 / (1 + cardelli_slope**-2))**0.5
+        squ_err_x = (1.0 + cardelli_slope**2)**-1 * 2 * red_vec_mag * squ_err_mag
+        squ_err_y = (1.0 + cardelli_slope**-2)**-1 * 2 * red_vec_mag * squ_err_mag
         # Remove outliers which might skew the chi-squared minimisation.
         reduced_indices = remove_outliers(gr_excess, 0.2, 0.7)
         gr_excess_shifted = gr_excess[reduced_indices] - red_vec_x
@@ -52,24 +59,35 @@ def main():
         chi_squ = get_chi_squ(gr_excess_shifted, ug_excess_shifted, polynomial,
                                  pleiades_coeffs, ug_excess_err[reduced_indices]
                                 )
-        params_and_fit.append([red_vec_mag, red_vec_x, red_vec_y, chi_squ])
+        params_and_fit.append([red_vec_mag, squ_err_mag,
+                               red_vec_x, squ_err_x,
+                               red_vec_y, squ_err_y,
+                               chi_squ])
 
     # Dirty data type change so minimisation can be performed.
     params_and_fit = np.array(params_and_fit)
-    row = minimiser(params_and_fit[:,3])
-    best_red_vec_mag, best_red_vec_x, best_red_vec_y, chi_squ_min = params_and_fit[row,:][0]
+    row = minimiser(params_and_fit[:,7])
+    best_red_vec_mag, squ_err_mag, best_red_vec_x, squ_err_x, best_red_vec_y, squ_err_y, chi_squ_min = params_and_fit[row,:][0]
 
     g_abs = best_red_vec_y * ((g_lambda/u_lambda) - 1)**-1
     u_abs = best_red_vec_y + g_abs
     r_abs = g_abs - best_red_vec_x
+    squ_err_g = ((g_lambda/u_lambda) - 1)**-2 * squ_err_y
+    squ_err_u = squ_err_y + squ_err_g
+    squ_err_r = squ_err_x + squ_err_g
 
     v_abs_g = g_abs / cardelli_consts["g"]
     v_abs_u = u_abs / cardelli_consts["u"]
     v_abs_r = r_abs / cardelli_consts["r"]
+    squ_v_abs_g_err = squ_err_g / cardelli_consts["g"]**2
+    squ_v_abs_u_err = squ_err_u / cardelli_consts["u"]**2
+    squ_v_abs_r_err = squ_err_r / cardelli_consts["r"]**2
 
     print("Cardelli slope: {}\nMagnitide: {}\nx-comp: {}\ny-comp: {}\nChi-Squ: {}".format(cardelli_slope, best_red_vec_mag, best_red_vec_x, best_red_vec_y, chi_squ_min))
     print("A_g = {}\nA_u = {}\nA_r = {}".format(g_abs,u_abs,r_abs))
     print("A_v = {} (from A_g)\nA_v = {} (from A_u)\nA_v = {} (from A_r)".format(v_abs_g,v_abs_u,v_abs_r))
+
+    # Error propagation ended here.
 
     de_reddened_gr_excess = gr_excess - best_red_vec_x
     de_reddened_ug_excess = ug_excess - best_red_vec_y
