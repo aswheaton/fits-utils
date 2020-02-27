@@ -66,7 +66,7 @@ def main():
 
     # Dirty data type change so minimisation can be performed.
     params_and_fit = np.array(params_and_fit)
-    row = minimiser(params_and_fit[:,7])
+    row = minimiser(params_and_fit[:,6])
     best_red_vec_mag, squ_err_mag, best_red_vec_x, squ_err_x, best_red_vec_y, squ_err_y, chi_squ_min = params_and_fit[row,:][0]
 
     g_abs = best_red_vec_y * ((g_lambda/u_lambda) - 1)**-1
@@ -87,48 +87,71 @@ def main():
     print("A_g = {}\nA_u = {}\nA_r = {}".format(g_abs,u_abs,r_abs))
     print("A_v = {} (from A_g)\nA_v = {} (from A_u)\nA_v = {} (from A_r)".format(v_abs_g,v_abs_u,v_abs_r))
 
-    # Error propagation ended here.
+    # Create de-reddened ugr.cat catalogue with errors.
+    new_catalogue = np.column_stack((u_mag - u_abs, u_err**2 + squ_err_u,
+                                     g_mag - g_abs, g_err**2 + squ_err_g,
+                                     r_mag - r_abs, r_err**2 + squ_err_r
+                                     ))
+    header_txt = "\n".join(["[0] : DE_REDDENED_U_MAG",
+                            "[1] : SQUARE_ERR_U_MAG",
+                            "[2] : DE_REDDENED_G_MAG",
+                            "[3] : SQUARE_ERR_U_MAG",
+                            "[4] : DE_REDDENED R_MAG",
+                            "[5] : SQUARE_ERR_U_MAG",
+                            ])
+    np.savetxt(cat_dir+"de_red_ugr.cat", new_catalogue, header=header_txt )
 
-    de_reddened_gr_excess = gr_excess - best_red_vec_x
-    de_reddened_ug_excess = ug_excess - best_red_vec_y
-
-    new_catalogue = np.column_stack((u_mag-u_abs, g_mag-g_abs, r_mag-r_abs))
-    np.savetxt(cat_dir+"de_reddened_ugr.cat", new_catalogue)
+    de_red_gr_excess = gr_excess - best_red_vec_x
+    de_red_ug_excess = ug_excess - best_red_vec_y
+    squ_dered_gr_err = squ_err_g + squ_err_r + squ_err_x
+    squ_dered_ug_err = squ_err_u + squ_err_g + squ_err_y
 
     # Plot chi-sqaured as a function of reddening vector magnitude and the
     # reddened data alongside the de-reddened data and the Pleiades data.
-    plt.plot(params_and_fit[:,0], params_and_fit[:,3])
-    dict = {}
-    dict["M52 Uncorrected"] = (gr_excess,ug_excess,"o")
-    dict["M52 De-reddened"] = (de_reddened_gr_excess,de_reddened_ug_excess,"o")
     value_range = np.linspace(-0.8, 1.0, 1000)
-    dict["Pleiades Data"] = (pleiades_data[:,0], pleiades_data[:,1], "o")
-    dict["Pleiades Fit"] = (value_range, polynomial(value_range, pleiades_coeffs), "-")
-    dict["Cardelli Slope"] = (value_range, cardelli_slope*value_range + y_cept, "-")
+    dict = {"M52 Uncorrected" : (gr_excess,ug_excess,"o"),
+            "M52 De-reddened" : (de_red_gr_excess,de_red_ug_excess,"o"),
+            "Pleiades Data"   : (pleiades_data[:,0], pleiades_data[:,1], "o"),
+            "Pleiades Fit"    : (value_range, polynomial(value_range, pleiades_coeffs), "-"),
+            "Cardelli Slope"  : (value_range, cardelli_slope*value_range + y_cept, "-")
+            }
     plot_diagram(dict, x_label="Colour:(g-r)", y_label="Colour:(u-g)",
                  sup_title="M52\nColour-Colour Diagram",
-                 legend=True, filename="M52_Colour-Colour_Diagram"
+                 legend=True, filename="M52_Colour_Colour_Diagram"
                 )
+    plt.plot(params_and_fit[:,0], params_and_fit[:,6])
 
     # Load in the larger g and r catalogue of objects which are invisible in u.
     catalog = np.loadtxt(cat_dir+"gr.cat")
     r_mag, r_err = get_mag(catalog[:,5], catalog[:,6], zpr, 600)
     g_mag, g_err = get_mag(catalog[:,3], catalog[:,4], zpg, 600)
     # De-redden the larger catalogue with newly found r_abs and g_abs values.
-    de_reddened_r_mag = r_mag - r_abs
-    de_reddened_g_mag = g_mag - g_abs
+    de_red_r_mag = r_mag - r_abs
+    de_red_g_mag = g_mag - g_abs
+    squ_dered_r_err = r_err**2 + squ_err_r
+    squ_dered_g_err = g_err**2 + squ_err_g
     # Calculate the de-reddened colour excess.
-    de_reddened_gr_excess = de_reddened_g_mag - de_reddened_r_mag
+    de_red_gr_excess = de_red_g_mag - de_red_r_mag
+    squ_dered_gr_err = squ_dered_r_err + squ_dered_g_err
+
     # Write the corrected catalogue out.
-    de_reddened_gr_r = np.column_stack((de_reddened_gr_excess, de_reddened_r_mag))
-    np.savetxt(cat_dir+"de_reddened_gr_r.cat", de_reddened_gr_r)
-    # Plot the de-reddened diagram.
-    dict = {"M52 r vs. g-r":(de_reddened_gr_excess, de_reddened_r_mag,'o'),
-            "Pleiades r vs. g-r":(pleiades_data[:,0], pleiades_data[:,2], 'o')
+    new_catalogue = np.column_stack((de_red_gr_excess, squ_dered_gr_err,
+                                     de_red_r_mag, squ_dered_g_err
+                                     ))
+    header_txt = "\n".join(["[0] : DE_REDDENED_GR_COLOR",
+                            "[1] : SQUARE_ERR_GR_COLOR",
+                            "[2] : DE_REDDENED_R_MAG",
+                            "[3] : SQUARE_ERR_R_MAG"
+                            ])
+    np.savetxt(cat_dir+"de_red_gr_r.cat", new_catalogue, header=header_txt)
+
+    # Plot the de-reddened magnitude vs. colour diagram.
+    dict = {"M52 r vs. g-r"      : (de_red_gr_excess, de_red_r_mag,"o"),
+            "Pleiades r vs. g-r" : (pleiades_data[:,0], pleiades_data[:,2], "o")
            }
     plot_diagram(dict, x_label="Colour:(g-r)", y_label="Magnitude: g",
-                 sup_title="M52\nColour-Colour Diagram",
-                 legend=True, filename="M52_Colour-Colour_Diagram"
+                 sup_title="M52\nColour-Magnitude Diagram",
+                 legend=True, filename="M52_Colour_Magnitude_Diagram"
                 )
 
 main()
