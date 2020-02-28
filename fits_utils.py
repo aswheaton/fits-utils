@@ -35,6 +35,12 @@ from pathlib import Path
 from astropy.io import fits
 from os import walk
 
+# Force fonts to be nice.
+from matplotlib import rc
+rc('font',**{'family':'sans-serif','sans-serif':['Computer Modern Sans serif']})
+rc('font',**{'family':'serif','serif':['Computer Modern Roman']})
+rc('text', usetex=True)
+
 def gen_config():
     config = configparser.ConfigParser()
     config["TELESCOPE"] = {"Size": "15"}
@@ -571,10 +577,13 @@ def get_zero_points(input_airmass):
         elif band == "g": zpg = zero_point
         elif band == "u": zpu = zero_point
 
-        # plt.plot(airmasses, zero_points, 'o')
+        # plt.errorbar(airmasses,zero_points, fmt='o', markersize=1, elinewidth=1, capsize=3, barsabove=True, yerr=zero_point_errs)
         # plt.plot(airmasses, gradient*airmasses+intercept, '-')
-        # plt.title('Zero Point vs Airmass ({}-band)'.format(band))
-        # plt.show()
+        # plt.title('Zero Point vs. Airmass ({} band)'.format(band))
+        # plt.xlabel('Airmass')
+        # plt.ylabel('Extinction (magnitudes)')
+        # plt.savefig('plots/zp{}.png'.format(band), dpi=1000)
+        # plt.clf()
 
     return(zpr, zpg, zpu)
 
@@ -655,15 +664,11 @@ def polynomial(x, x_sq_err, coeffs, cov_sq):
     Returns the corresponding y value for x, given the coefficients for an
     nth-order polynomial as a list descending in order.
     """
-    # Hard code for 4th order, better to use general case.
-    # y = A*x**4 + B*x**3 + C*x**2 + D*x**1 + E*x**0)
-    y = 0.0
-    y_err = 0.0
+    y , squ_y_err = 0.0, 0.0
     for n in range(len(coeffs)):
         y += coeffs[n] * x ** n
-        y_sq_err += (n * coeffs[n] * (x**(n-1)))**2 * x_sq_err + (x**2n) * cov_sq[n]
-
-    return(y, y_sq_err)
+        squ_y_err += (x**n)**2 * cov_sq[n]
+    return(y, squ_y_err)
 
 # def get_r(red_x, red_y, hyp_x, hyp_y, func, coeffs, cov):
 #     # Slope of the DE-reddening vector.
@@ -677,12 +682,13 @@ def polynomial(x, x_sq_err, coeffs, cov_sq):
 #     r = ((hyp_x-x_int)**2 + (hyp_y-y_int)**2)**0.5
 #     return(r)
 
-def get_chi_squ(x, y, func, coeffs, error):
+def get_chi_squ(x, squ_x_err, y, squ_y_err, func, coeffs, squ_cov):
     """
     Returns the chi-squared value for a given x,y dataset and a function handle
     that returns the predicted predicted values.
     """
-    chi_squ_tot = np.sum(((y - func(x, coeffs)) / error)**2)
+    y_exp, _ = func(x, squ_x_err, coeffs, squ_cov)
+    chi_squ_tot = np.sum((y - y_exp)**2 / squ_y_err)
     return(chi_squ_tot)
 
 def get_sumsqu_res(x, y, func, coeffs):

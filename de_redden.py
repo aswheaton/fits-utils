@@ -17,15 +17,14 @@ def main():
     indices = np.where(pleiades_data[:,0] < 0.5)[0]
     reduced_data = pleiades_data[indices,:]
     pleiades_coeffs, cov = np.polyfit(reduced_data[:,0], reduced_data[:,1], deg=4, cov=True)
-    # print(pleiades_coeffs)
-    # print(cov)
-    pleiades_coeffs = np.flip(pleiades_coeffs, axis=0)
+    pleiades_coeffs = np.flip(pleiades_coeffs)
+    squ_pleiades_cov = np.flip(np.diag(cov))
     # Calculate the colour excess.
     gr_excess = g_mag - r_mag # x-axis variable
     ug_excess = u_mag - g_mag # y-axis variable
     # Calculate error on colour excess.
-    gr_excess_err = g_err + r_err
-    ug_excess_err = u_err + g_err
+    squ_gr_excess_err = g_err**2 + r_err**2
+    squ_ug_excess_err = u_err**2 + g_err**2
 
     # Calculate the slope of the reddening vector according to Cardelli et al.
     cardelli_consts = {"r" : cardelli_const(r_lambda),
@@ -42,8 +41,10 @@ def main():
     mp_y = (1/ug_excess.shape[0])*np.sum(ug_excess)
     y_cept = mp_y - cardelli_slope*mp_x
 
+    # Remove outliers which might skew the chi-squared minimisation.
+    reduced_indices = remove_outliers(gr_excess, 0.2, 0.7)
     # Iterate over reasonable range of values for the reddening vector magnitude.
-    start, stop, steps = 0.8, 1.6, 1000
+    start, stop, steps = 0.6, 1.5, 1000
     for red_vec_mag in np.linspace(start, stop, steps):
         squ_err_mag = ((stop - start) / steps)**2
         # Separate reddening vector into components in colour-colour space.
@@ -51,14 +52,16 @@ def main():
         red_vec_y = (red_vec_mag**2 / (1 + cardelli_slope**-2))**0.5
         squ_err_x = (1.0 + cardelli_slope**2)**-1 * 2 * red_vec_mag * squ_err_mag
         squ_err_y = (1.0 + cardelli_slope**-2)**-1 * 2 * red_vec_mag * squ_err_mag
-        # Remove outliers which might skew the chi-squared minimisation.
-        reduced_indices = remove_outliers(gr_excess, 0.2, 0.7)
+        # Move positions in colour-colour space along the direction of the reddening vector.
         gr_excess_shifted = gr_excess[reduced_indices] - red_vec_x
         ug_excess_shifted = ug_excess[reduced_indices] - red_vec_y
+        squ_gr_shifted_err = squ_gr_excess_err[reduced_indices] + squ_err_x
+        squ_ug_shifted_err = squ_ug_excess_err[reduced_indices] + squ_err_y
         # Get the minimum chi-squared value for the particular magnitude.
-        chi_squ = get_chi_squ(gr_excess_shifted, ug_excess_shifted, polynomial,
-                                 pleiades_coeffs, ug_excess_err[reduced_indices]
-                                )
+        chi_squ = get_chi_squ(gr_excess_shifted, squ_gr_shifted_err,
+                              ug_excess_shifted, squ_ug_shifted_err,
+                              polynomial, pleiades_coeffs, squ_pleiades_cov
+                              )
         params_and_fit.append([red_vec_mag, squ_err_mag,
                                red_vec_x, squ_err_x,
                                red_vec_y, squ_err_y,
@@ -108,12 +111,13 @@ def main():
 
     # Plot chi-sqaured as a function of reddening vector magnitude and the
     # reddened data alongside the de-reddened data and the Pleiades data.
-    value_range = np.linspace(-0.8, 1.0, 1000)
+    colour_range = np.linspace(-0.8, 1.0, 1000)
+    pleiades_curve, _ = polynomial(colour_range, 0.0, pleiades_coeffs, squ_pleiades_cov)
     dict = {"M52 Uncorrected" : (gr_excess,ug_excess,"o"),
             "M52 De-reddened" : (de_red_gr_excess,de_red_ug_excess,"o"),
             "Pleiades Data"   : (pleiades_data[:,0], pleiades_data[:,1], "o"),
-            "Pleiades Fit"    : (value_range, polynomial(value_range, pleiades_coeffs), "-"),
-            "Cardelli Slope"  : (value_range, cardelli_slope*value_range + y_cept, "-")
+            "Pleiades Fit"    : (colour_range, pleiades_curve, "-"),
+            "Cardelli Slope"  : (colour_range, cardelli_slope*colour_range+y_cept, "-")
             }
     plot_diagram(dict, x_label="Colour:(g-r)", y_label="Colour:(u-g)",
                  sup_title="M52\nColour-Colour Diagram",
