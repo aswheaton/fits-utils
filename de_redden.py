@@ -86,9 +86,16 @@ def main():
     squ_v_abs_u_err = squ_err_u / cardelli_consts["u"]**2
     squ_v_abs_r_err = squ_err_r / cardelli_consts["r"]**2
 
-    print("Cardelli slope: {}\nMagnitide: {}\nx-comp: {}\ny-comp: {}\nChi-Squ: {}".format(cardelli_slope, best_red_vec_mag, best_red_vec_x, best_red_vec_y, chi_squ_min))
-    print("A_g = {}\nA_u = {}\nA_r = {}".format(g_abs,u_abs,r_abs))
-    print("A_v = {} (from A_g)\nA_v = {} (from A_u)\nA_v = {} (from A_r)".format(v_abs_g,v_abs_u,v_abs_r))
+    print("Cardelli slope: {}".format(cardelli_slope))
+    print("Magnitude: {} +/- {}".format(best_red_vec_mag, squ_err_mag**0.5))
+    print("x-comp: {}\ny-comp: {}".format(best_red_vec_x, best_red_vec_y))
+    print("Chi-Squ: {}".format(chi_squ_min))
+    print("A_g = {} +/- {}".format(g_abs, squ_err_g**0.5))
+    print("A_u = {} +/- {}".format(u_abs, squ_err_u**0.5))
+    print("A_r = {} +/- {}".format(r_abs, squ_err_r**0.5))
+    print("A_v = {} +/- {} (from A_g)".format(v_abs_g, squ_v_abs_g_err**0.5))
+    print("A_v = {} +/- {} (from A_u)".format(v_abs_u, squ_v_abs_u_err**0.5))
+    print("A_v = {} +/- {} (from A_r)".format(v_abs_r, squ_v_abs_r_err**0.5))
 
     # Create de-reddened ugr.cat catalogue with errors.
     new_catalogue = np.column_stack((u_mag - u_abs, u_err**2 + squ_err_u,
