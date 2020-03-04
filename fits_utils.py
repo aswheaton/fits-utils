@@ -799,7 +799,8 @@ def plot_diagram(plts, **kwargs):
            ylabel=kwargs.get("y_label"),
            title=kwargs.get("sup_title"),
            #: Invert the y axis for the plot.
-           ylim=ax.get_ylim()[::-1]
+           xlim=(None,1),
+           ylim=(-3,3)[::-1]
           )
     if kwargs.get("legend")==True:
         ax.legend(plt_names)

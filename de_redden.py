@@ -86,6 +86,9 @@ def main():
     squ_v_abs_u_err = squ_err_u / cardelli_consts["u"]**2
     squ_v_abs_r_err = squ_err_r / cardelli_consts["r"]**2
 
+    print(np.mean([v_abs_g,v_abs_r,v_abs_u]))
+    print(np.mean([squ_v_abs_g_err**0.5,squ_v_abs_r_err**0.5,squ_v_abs_u_err**0.5]))
+
     print("Cardelli slope: {}".format(cardelli_slope))
     print("Magnitude: {} +/- {}".format(best_red_vec_mag, squ_err_mag**0.5))
     print("x-comp: {}\ny-comp: {}".format(best_red_vec_x, best_red_vec_y))
